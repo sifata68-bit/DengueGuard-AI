@@ -43,3 +43,10 @@ SPLITS = {
 # Dengue season used for the "in-season" metrics. Months are of the TARGET date,
 # i.e. the week being forecast.
 IN_SEASON_MONTHS = (6, 7, 8, 9, 10)
+
+# --- Phase 4: cleaning and cache ---
+CLEAN_VERSION = 1
+MAX_WEATHER_FFILL_WEEKS = 2
+CLEAN_CSV_PATH = PROCESSED_DIR / "clean_weekly.csv"
+CLEAN_META_PATH = PROCESSED_DIR / "clean_weekly.meta.json"
+QUALITY_REPORT_PATH = PROCESSED_DIR / "data_quality_report.json"
