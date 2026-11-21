@@ -45,8 +45,12 @@ SPLITS = {
 IN_SEASON_MONTHS = (6, 7, 8, 9, 10)
 
 # --- Phase 4: cleaning and cache ---
-CLEAN_VERSION = 1
-MAX_WEATHER_FFILL_WEEKS = 2
+CLEAN_VERSION = 1  # bump when cleaning logic changes, so cached files are rebuilt
+MAX_WEATHER_FFILL_WEEKS = 2  # causal (past-only) gap filling limit for weather columns
 CLEAN_CSV_PATH = PROCESSED_DIR / "clean_weekly.csv"
 CLEAN_META_PATH = PROCESSED_DIR / "clean_weekly.meta.json"
 QUALITY_REPORT_PATH = PROCESSED_DIR / "data_quality_report.json"
+
+# --- Phase 5: rainfall lag pipeline ---
+RAIN_LAGS = tuple(range(0, 7))  # weeks BEFORE the as-of week (0 = the as-of week itself)
+RAIN_ROLL_WINDOWS = (2, 4, 6)  # trailing rainfall sums ending at the as-of week (inclusive)
