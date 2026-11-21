@@ -1,13 +1,3 @@
-
-"""Production prediction engine for DengueGuard AI.
-
-Loads trained models and generates ward-level dengue forecasts
-for 2, 3, and 4 weeks ahead.
-
-Uses the production feature pipeline. Current-week dengue cases
-are never used as prediction features.
-"""
-
 import joblib
 import numpy as np
 import pandas as pd
@@ -31,8 +21,6 @@ MODEL_DIR = MODELS_DIR / "production"
 
 
 def load_production_model(horizon):
-    """Load a trained production model for the requested horizon."""
-
     if horizon not in HORIZONS:
         raise ValueError(
             f"Unsupported forecast horizon: {horizon}. "
@@ -63,22 +51,9 @@ def load_production_model(horizon):
 
 
 def predict_ward(clean_data, ward_id, as_of_date=None):
-    """Generate 2-, 3-, and 4-week forecasts for one ward.
-
-    Args:
-        clean_data: Cleaned historical dataset.
-        ward_id: Ward identifier.
-        as_of_date: Optional exact forecast issue date.
-                    Defaults to the latest available date for the ward.
-
-    Returns:
-        DataFrame containing predictions and risk categories.
-    """
-
     if ward_id not in clean_data[WARD_COL].unique():
         raise ValueError(f"Ward not found: {ward_id}")
 
-    # Build features using the same pipeline used during training.
     features = build_production_features(clean_data)
 
     ward_features = features[
@@ -99,7 +74,6 @@ def predict_ward(clean_data, ward_id, as_of_date=None):
     else:
         selected_date = pd.to_datetime(as_of_date)
 
-    # Require an exact observation date.
     selected_rows = ward_features[
         ward_features[DATE_COL] == selected_date
     ]
@@ -112,7 +86,6 @@ def predict_ward(clean_data, ward_id, as_of_date=None):
 
     row = selected_rows.iloc[[0]]
 
-    # Check that every required production feature is available.
     missing_features = row[
         PRODUCTION_FEATURE_COLUMNS
     ].isna().any()
@@ -156,32 +129,16 @@ def predict_ward(clean_data, ward_id, as_of_date=None):
 
         predictions.append(result)
 
-    # Attach Low, Medium, High, or Critical risk categories.
     forecast_df = pd.DataFrame(predictions)
 
     return add_risk_categories(forecast_df)
 
 
 def predict_all_wards(clean_data, as_of_date=None):
-    """Generate 2-, 3-, and 4-week forecasts for all wards.
-
-    Builds production features once and predicts all wards in batches.
-
-    Args:
-        clean_data: Cleaned historical dataset.
-        as_of_date: Optional exact forecast issue date.
-                    Defaults to each ward's latest available date.
-
-    Returns:
-        DataFrame containing predictions and risk categories.
-    """
-
-    # Build the production features only once.
     features = build_production_features(clean_data)
 
     features[DATE_COL] = pd.to_datetime(features[DATE_COL])
 
-    # Select the latest available observation for each ward.
     if as_of_date is None:
         selected_rows = (
             features.sort_values(DATE_COL)
@@ -198,7 +155,6 @@ def predict_all_wards(clean_data, as_of_date=None):
     if selected_rows.empty:
         raise ValueError("No ward records available for prediction.")
 
-    # Check that all required features are available.
     missing_rows = selected_rows[
         PRODUCTION_FEATURE_COLUMNS
     ].isna().any(axis=1)
@@ -219,7 +175,6 @@ def predict_all_wards(clean_data, as_of_date=None):
 
     predictions = []
 
-    # Load each model once and predict all wards together.
     for horizon in HORIZONS:
         model = load_production_model(horizon)
 
@@ -266,9 +221,8 @@ def predict_all_wards(clean_data, as_of_date=None):
         else [WARD_COL, "horizon_weeks"]
     ).reset_index(drop=True)
 
-def main():
-    """Run a basic prediction using the latest available ward record."""
 
+def main():
     print("Loading cleaned data...")
     clean = get_clean_data()
 

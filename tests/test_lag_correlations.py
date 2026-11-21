@@ -1,4 +1,4 @@
-"""Tests for src/lag_correlations.py (descriptive correlations; train split only)."""
+
 import inspect
 import json
 
@@ -28,13 +28,12 @@ from src.lag_correlations import (
 from src.preprocessing import get_clean_data
 from src.targets import get_split_frame
 
-KNOWN_DELAY = 3  # in the synthetic data, cases(t) = 2 * rainfall(t - 3)
+KNOWN_DELAY = 3
 
 
 def make_known_delay_panel(weeks: int = 200, n_wards: int = 4, seed: int = 7) -> pd.DataFrame:
-    """Random rainfall; cases are exactly 2 x the rainfall observed KNOWN_DELAY weeks earlier."""
     rng = np.random.default_rng(seed)
-    dates = pd.date_range("2016-01-04", periods=weeks, freq="7D")  # all inside the train period
+    dates = pd.date_range("2016-01-04", periods=weeks, freq="7D")
     frames = []
     for w in range(n_wards):
         rain = rng.gamma(2.0, 20.0, size=weeks)
@@ -77,16 +76,13 @@ def real_table(real_frame) -> pd.DataFrame:
     return correlation_table(real_frame)
 
 
-# ---------- synthetic data with a KNOWN answer ----------
-
 def test_known_rain_to_case_delay_is_recovered_at_every_usable_horizon(synthetic_table):
     lags = synthetic_table[synthetic_table["kind"] == "lag"]
-    for h in (2, 3):  # delay 3 minus horizon = lag 1 and lag 0, both usable
+    for h in (2, 3):
         part = lags[lags["horizon"] == h]
         best = part.loc[part["r_all"].idxmax()]
         assert int(best["lag_weeks"]) == KNOWN_DELAY - h
         assert best["r_all"] > 0.99
-    # Horizon 4 would need lag -1 (future rain): no usable lag may look strongly related.
     part4 = lags[lags["horizon"] == 4]
     assert part4["r_all"].abs().max() < 0.3
 
@@ -121,8 +117,6 @@ def test_total_delay_is_lag_plus_horizon_and_only_defined_for_lags(synthetic_tab
     assert rolling["lag_weeks"].isna().all() and rolling["total_delay_weeks"].isna().all()
 
 
-# ---------- real data ----------
-
 def test_sample_size_loses_one_week_per_ward_for_each_extra_lag(real_frame, real_table):
     n_train = len(get_split_frame(real_frame, 2, "train"))
     lags = real_table[(real_table["horizon"] == 2) & (real_table["kind"] == "lag")]
@@ -133,14 +127,14 @@ def test_sample_size_loses_one_week_per_ward_for_each_extra_lag(real_frame, real
 
 def test_in_season_row_counts_are_identical_across_features_within_a_horizon(real_table):
     for _, part in real_table.groupby("horizon"):
-        assert part["n_in_season"].nunique() == 1  # early-2016 gaps fall outside the season
+        assert part["n_in_season"].nunique() == 1
 
 
 def test_real_data_reproduces_the_phase_2_hints(real_table):
     summary = compare_with_hints(real_table, hints=HINTS)
     assert summary["lag_matches_hint"].all()
     assert summary["r_matches_hint_3dp"].all()
-    assert summary.loc[summary["horizon"] == 4, "ideal_3w_delay_available_at_asof"].iloc[0] == False  # noqa: E712
+    assert summary.loc[summary["horizon"] == 4, "ideal_3w_delay_available_at_asof"].iloc[0] == False
 
 
 def test_in_season_correlation_is_lower_than_the_all_row_correlation(real_table):
@@ -156,8 +150,6 @@ def test_results_ignore_all_data_after_the_train_period(clean, real_table):
     recomputed = correlation_table(build_analysis_frame(altered))
     pd.testing.assert_frame_equal(real_table, recomputed)
 
-
-# ---------- guards and outputs ----------
 
 def test_module_never_requests_the_locked_test_split():
     source = inspect.getsource(lag_correlations)

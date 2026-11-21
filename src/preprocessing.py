@@ -1,16 +1,4 @@
-"""Phase 4: validation, cleaning and weekly-grid regularisation, plus a cached loader.
 
-Design rules
-  * Fix only what is physically unambiguous (duplicates, humidity above 100 %, negative
-    rainfall). Everything else that looks wrong is REPORTED, never silently altered.
-  * Lag features later use row shifts inside each ward, which are only correct if every ward
-    has one row per week. clean() therefore inserts any missing weeks as explicit rows.
-  * Gaps in weather are filled FORWARD ONLY (last observed value, limited number of weeks),
-    so no future information can leak backwards. Missing case counts are never imputed:
-    the pipeline fails loudly instead of inventing outcomes.
-  * The provided dataset needs none of these repairs (all counters are 0); the code exists
-    so the same pipeline stays safe on new data in later stages.
-"""
 import hashlib
 import json
 import time
@@ -39,11 +27,10 @@ NUMERIC_COLS = [*STATIC_COLS, *WEATHER_COLS, TARGET_COL]
 
 
 class DataQualityError(ValueError):
-    """Raised when the data cannot be made safe for forecasting without guessing."""
+    pass
 
 
 def clean_with_report(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
-    """Return (cleaned frame, report of everything that was checked or changed)."""
     missing_cols = [c for c in REQUIRED_COLS if c not in df.columns]
     if missing_cols:
         raise DataQualityError(f"Missing required columns: {missing_cols}")
@@ -51,7 +38,6 @@ def clean_with_report(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     report: dict = {"rows_in": int(len(df))}
     out = df[REQUIRED_COLS].copy()
 
-    # 1. Types: dates, identifiers, numerics (non-numeric text becomes NaN and is counted).
     out[DATE_COL] = pd.to_datetime(out[DATE_COL], errors="coerce")
     for col in (WARD_COL, CITY_COL):
         out[col] = out[col].astype("string").str.strip()
@@ -60,17 +46,14 @@ def clean_with_report(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
         out[col] = pd.to_numeric(out[col], errors="coerce")
     report["cells_failed_numeric_conversion"] = int((out[NUMERIC_COLS].isna().sum() - before_nan).sum())
 
-    # 2. Rows without a usable key cannot be placed on the grid.
     bad_key = out[DATE_COL].isna() | out[WARD_COL].isna() | (out[WARD_COL] == "")
     report["rows_dropped_missing_key"] = int(bad_key.sum())
     out = out[~bad_key]
 
-    # 3. Duplicate (ward, date) rows: keep the first occurrence.
     dup = out.duplicated([WARD_COL, DATE_COL], keep="first")
     report["duplicate_ward_date_rows_dropped"] = int(dup.sum())
     out = out[~dup]
 
-    # 4. Ward identity: one city per ward, constant vulnerability attributes per ward.
     multi_city = out.groupby(WARD_COL)[CITY_COL].nunique(dropna=True)
     if (multi_city > 1).any():
         raise DataQualityError(f"Wards assigned to more than one city: {list(multi_city[multi_city > 1].index)}")
@@ -79,7 +62,6 @@ def clean_with_report(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
         if (varying > 1).any():
             raise DataQualityError(f"Static column '{col}' varies within wards: {list(varying[varying > 1].index)[:5]}")
 
-    # 5. Physical range rules.
     rain_bad = out["rainfall_mm"] < 0
     report["negative_rainfall_set_missing"] = int(rain_bad.sum())
     out.loc[rain_bad, "rainfall_mm"] = float("nan")
@@ -94,12 +76,10 @@ def clean_with_report(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     non_integer = out[TARGET_COL].notna() & (out[TARGET_COL] % 1 != 0)
     report["non_integer_case_counts_rounded"] = int(non_integer.sum())
     out[TARGET_COL] = out[TARGET_COL].round()
-    # Flagged only (never altered): temperature ordering must be min <= avg <= max.
     report["temperature_order_violations_flagged"] = int(
         ((out["min_temp_c"] > out["avg_temp_c"]) | (out["avg_temp_c"] > out["max_temp_c"])).sum()
     )
 
-    # 6. Weekly grid: every ward gets one row per 7-day step between its first and last date.
     offset_days = (out[DATE_COL] - out.groupby(WARD_COL)[DATE_COL].transform("min")).dt.days
     if (offset_days % 7 != 0).any():
         raise DataQualityError("Some dates are not on the ward's 7-day weekly lattice.")
@@ -117,13 +97,11 @@ def clean_with_report(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     for col in (CITY_COL, *STATIC_COLS):
         full[col] = full.groupby(WARD_COL)[col].transform("first")
 
-    # 7. Weather gaps: forward fill only (past information), limited number of weeks.
     full = full.sort_values([WARD_COL, DATE_COL]).reset_index(drop=True)
     nan_before = int(full[WEATHER_COLS].isna().sum().sum())
     full[WEATHER_COLS] = full.groupby(WARD_COL)[WEATHER_COLS].ffill(limit=MAX_WEATHER_FFILL_WEEKS)
     report["weather_cells_forward_filled"] = nan_before - int(full[WEATHER_COLS].isna().sum().sum())
 
-    # 8. Anything still missing cannot be repaired without guessing -> fail loudly.
     remaining = full[REQUIRED_COLS].isna().sum()
     remaining = remaining[remaining > 0]
     if len(remaining):
@@ -143,7 +121,6 @@ def clean_with_report(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
 
 
 def clean(df: pd.DataFrame) -> pd.DataFrame:
-    """Interface from CONTRACT.md: cleaned frame, sorted by ward_id then date."""
     return clean_with_report(df)[0]
 
 
@@ -162,11 +139,6 @@ def get_clean_data(
     meta_path: Path = CLEAN_META_PATH,
     report_path: Path = QUALITY_REPORT_PATH,
 ) -> pd.DataFrame:
-    """Cleaned data, parsed from Excel only when the cache is missing or stale.
-
-    The cache is keyed on the SHA-256 of the raw file plus CLEAN_VERSION, so editing the
-    data or the cleaning logic always triggers a rebuild, and nothing else does.
-    """
     raw_path, clean_path, meta_path, report_path = map(Path, (raw_path, clean_path, meta_path, report_path))
     digest = _sha256(raw_path) if raw_path.exists() else None
     if not force and digest and clean_path.exists() and meta_path.exists():
@@ -182,7 +154,6 @@ def get_clean_data(
 
 
 def main() -> None:
-    """python -m src.preprocessing : rebuild the cache, show the report and cache timings."""
     start = time.perf_counter()
     df = get_clean_data(force=True)
     cold = time.perf_counter() - start

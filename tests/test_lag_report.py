@@ -1,6 +1,3 @@
-
-"""Tests for Phase 5 Step 2D: final report assembly."""
-
 import json
 
 import pandas as pd
@@ -78,7 +75,6 @@ def test_report_saves_all_expected_outputs(tmp_path, clean, monkeypatch):
     monkeypatch.setattr(report, "SUMMARY_JSON", summary_path)
     monkeypatch.setattr(report, "DIAGNOSTIC_CSV", diagnostic_path)
 
-    # Redirect the correlation module's output paths too.
     import src.lag_correlations as correlations
 
     monkeypatch.setattr(

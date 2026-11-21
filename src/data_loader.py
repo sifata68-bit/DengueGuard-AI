@@ -1,4 +1,3 @@
-"""Load and validate the raw hackathon workbook. (Cleaning is extended in Phase 4.)"""
 from pathlib import Path
 
 import pandas as pd
@@ -13,7 +12,6 @@ from src.config import (
 
 
 def load_raw(path: Path = RAW_DATA_PATH) -> pd.DataFrame:
-    """Read the Excel file, check the schema and return a ward/date-sorted frame."""
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(
@@ -28,7 +26,6 @@ def load_raw(path: Path = RAW_DATA_PATH) -> pd.DataFrame:
 
 
 def validate_panel(df: pd.DataFrame) -> dict:
-    """Facts about the panel that later code relies on (regular weekly spacing, balance)."""
     dup = int(df.duplicated([WARD_COL, DATE_COL]).sum())
     gaps = df.groupby(WARD_COL)[DATE_COL].diff().dropna().dt.days.value_counts().to_dict()
     per_ward = df.groupby(WARD_COL).size()

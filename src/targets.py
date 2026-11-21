@@ -1,19 +1,4 @@
 
-"""Direct multi-horizon targets and leakage-safe chronological split assignment.
-
-Row convention: one row = (ward, as-of date t). Features may only use information
-observed at or before t. The label for horizon h is dengue_cases of the SAME ward
-at t + h weeks; the date of that observation is stored as target_date_h{h}.
-
-Split rule (the core of leakage prevention): a row belongs to split S only if
-BOTH its as-of date AND its target date lie inside S's date range. A row whose
-as-of date is in S but whose target date falls beyond S's end is labelled
-"purged" and is dropped from every split. Hence:
-  * no training label comes from the validation period or later,
-  * no validation label comes from the test period,
-  * no test label comes from beyond the end of the data.
-"""
-
 import pandas as pd
 
 from src.config import DATE_COL, HORIZONS, SPLITS, TARGET_COL, WARD_COL
@@ -32,7 +17,6 @@ def split_name(h: int) -> str:
 
 
 def assign_split(asof: pd.Series, target_date: pd.Series) -> pd.Series:
-    """Label each row train / val / test / purged / no_target."""
     label = pd.Series("unassigned", index=asof.index, dtype="object")
     has_target = target_date.notna()
 
@@ -48,12 +32,6 @@ def assign_split(asof: pd.Series, target_date: pd.Series) -> pd.Series:
 
 
 def add_targets(df: pd.DataFrame, horizons=HORIZONS) -> pd.DataFrame:
-    """Add target_cases_h{h}, target_date_h{h} and split_h{h} for every horizon.
-
-    The target is taken with a within-ward shift of -h rows, but is only kept
-    when the shifted row's date is EXACTLY date + h weeks. A missing week
-    therefore gives a NaN target instead of silently pointing at the wrong week.
-    """
     out = df.sort_values([WARD_COL, DATE_COL]).reset_index(drop=True).copy()
     grouped = out.groupby(WARD_COL, sort=False)
 
@@ -81,12 +59,6 @@ def get_split_frame(
     *,
     final_test_evaluation: bool = False,
 ) -> pd.DataFrame:
-    """Return labelled rows for one split and horizon.
-
-    The test split is locked: it can only be requested with
-    final_test_evaluation=True, which is reserved for the one-shot
-    final test evaluation in src/evaluation.py.
-    """
     if split not in SPLITS:
         raise ValueError(
             f"Unknown split '{split}'. Choose from {list(SPLITS)}."
@@ -102,10 +74,6 @@ def get_split_frame(
 
 
 def audit_splits(df: pd.DataFrame, horizons=HORIZONS) -> pd.DataFrame:
-    """Return counts/date ranges per horizon and split, asserting no leakage.
-
-    Only counts and dates are reported; test target values are never reported.
-    """
     rows = []
 
     for h in horizons:
@@ -114,7 +82,6 @@ def audit_splits(df: pd.DataFrame, horizons=HORIZONS) -> pd.DataFrame:
         scol = split_name(h)
 
         for name, (start, end) in SPLITS.items():
-            # Select the rows belonging to this specific split.
             part = df[df[scol] == name].copy()
 
             assert part[tcol].notna().all(), (
@@ -156,7 +123,6 @@ def audit_splits(df: pd.DataFrame, horizons=HORIZONS) -> pd.DataFrame:
                 }
             )
 
-        # Cross-split ordering: no labels cross into the next split.
         tr = df[df[scol] == "train"]
         va = df[df[scol] == "val"]
         te = df[df[scol] == "test"]

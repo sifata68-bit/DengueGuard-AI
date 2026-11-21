@@ -1,4 +1,3 @@
-"""Metrics shared by baselines, models and the dashboard (MAE / RMSE, overall and in-season)."""
 import numpy as np
 import pandas as pd
 
@@ -14,12 +13,10 @@ def rmse(y_true, y_pred) -> float:
 
 
 def in_season_mask(target_dates) -> np.ndarray:
-    """True where the forecast TARGET week falls inside the dengue season."""
     return pd.Series(target_dates).dt.month.isin(IN_SEASON_MONTHS).to_numpy()
 
 
 def score(y_true, y_pred, target_dates) -> dict:
-    """MAE/RMSE over all rows and over in-season rows only."""
     y_true = np.asarray(y_true, float)
     y_pred = np.asarray(y_pred, float)
     mask = in_season_mask(target_dates)
@@ -34,10 +31,8 @@ def score(y_true, y_pred, target_dates) -> dict:
 
 
 def comparison_table(y_true, target_dates, predictions: dict) -> pd.DataFrame:
-    """One row per named prediction set, sorted by in-season RMSE."""
     rows = [
         {"model": name, **score(y_true, np.asarray(pred), target_dates)}
         for name, pred in predictions.items()
     ]
     return pd.DataFrame(rows).sort_values("rmse_in_season").reset_index(drop=True)
-    

@@ -1,10 +1,3 @@
-"""Phase 2: exploration, target definition and leakage audit.
-
-Run from the project root:   python -m src.eda
-
-IMPORTANT: this script never reads test-period target values. Statistics use the
-train split (and validation where stated). The test split is only counted.
-"""
 import pandas as pd
 
 from src.baselines import add_baseline_inputs, baseline_predictions

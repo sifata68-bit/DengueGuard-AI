@@ -1,5 +1,3 @@
-
-"""Leakage tests on a synthetic panel whose case values encode (ward, week index)."""
 import pandas as pd
 import pytest
 
@@ -15,7 +13,7 @@ from src.targets import (
 )
 
 N_WARDS = 3
-ENCODE = 100_000  # case value = ward_number * ENCODE + week_index
+ENCODE = 100_000
 
 
 def make_panel() -> pd.DataFrame:

@@ -1,6 +1,3 @@
-
-"""Tests for Phase 5 Step 2C: diagnostic A/B/C comparison."""
-
 from pathlib import Path
 
 import numpy as np
@@ -54,16 +51,12 @@ def test_diagnostic_case_lags_are_correct(diagnostic_frame, clean):
         .reset_index(drop=True)
     )
 
-    # Lag 0 is the current week's observed cases.
     assert actual.loc[4, "diag_cases_lag_0"] == original.loc[4, TARGET_COL]
 
-    # Lag 1 is the previous week's observed cases.
     assert actual.loc[4, "diag_cases_lag_1"] == original.loc[3, TARGET_COL]
 
-    # Lag 3 is the observed cases three weeks earlier.
     assert actual.loc[4, "diag_cases_lag_3"] == original.loc[1, TARGET_COL]
 
-    # Four-week rolling mean includes the current week and previous 3 weeks.
     expected = original.loc[0:3, TARGET_COL].mean()
     assert actual.loc[3, "diag_cases_roll4_mean"] == pytest.approx(expected)
 

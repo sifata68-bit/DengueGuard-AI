@@ -1,14 +1,3 @@
-"""Phase 5, Step 2A: ingestion checks and leakage self-checks for the rainfall-lag table.
-
-Every check returns a CheckResult instead of raising, so a report can show all results at once.
-Run on its own with:   python -m src.lag_checks
-
-Two ideas make these checks trustworthy:
-  * The lag table is verified against an INDEPENDENT recomputation that uses date arithmetic
-    (merge on "date minus k weeks"), not the shift() calls used by the pipeline itself.
-  * The leakage checks accept a `builder` function, so the tests can feed them a deliberately
-    leaky builder and prove the checks actually fail when leakage exists.
-"""
 import sys
 from dataclasses import asdict, dataclass
 from typing import Callable
@@ -33,7 +22,6 @@ from src.feature_engineering import (
 )
 from src.preprocessing import get_clean_data
 
-# Facts established in Phases 2 and 4 about the provided dataset.
 EXPECTED = {
     "rows": 31_320,
     "wards": 60,
@@ -41,7 +29,6 @@ EXPECTED = {
     "date_min": "2016-01-04",
     "date_max": "2025-12-29",
 }
-# Weeks of history needed before every lag / rolling feature is defined.
 MAX_HISTORY_WEEKS = max(max(RAIN_LAGS), max(RAIN_ROLL_WINDOWS) - 1)
 BANNED_IN_FEATURES = ("target", "split", TARGET_COL, "diag_")
 
@@ -88,11 +75,7 @@ def check_weekly_grid(clean: pd.DataFrame) -> CheckResult:
 
 
 def reference_lag_values(clean: pd.DataFrame) -> pd.DataFrame:
-    """Recompute the rainfall features with DATE ARITHMETIC, independent of shift()/rolling().
 
-    The value k weeks before (ward, date) is looked up by merging on (ward, date - k weeks).
-    Rolling sums are the sum of the needed lags and are NaN if any of them is missing.
-    """
     base = _sorted(clean)[[WARD_COL, DATE_COL, RAIN_COL]]
     needed = sorted(set(RAIN_LAGS) | set(range(max(RAIN_ROLL_WINDOWS))))
     out = base[[WARD_COL, DATE_COL]].copy()
@@ -156,7 +139,6 @@ def check_no_banned_columns(table: pd.DataFrame) -> CheckResult:
 def check_future_invariance(
     clean: pd.DataFrame, cutoff: pd.Timestamp, builder: Builder = build_lag_features
 ) -> CheckResult:
-    """Altering every observation AFTER `cutoff` must not change any feature dated <= cutoff."""
     base = _sorted(clean)
     altered = base.copy()
     future = altered[DATE_COL] > cutoff
@@ -176,7 +158,6 @@ def check_future_invariance(
 def check_truncation_invariance(
     clean: pd.DataFrame, cutoff: pd.Timestamp, builder: Builder = build_lag_features
 ) -> CheckResult:
-    """Features built on data cut at `cutoff` must equal features built on all data, then cut."""
     base = _sorted(clean)
     full = _sorted(builder(base))
     truncated = _sorted(builder(base[base[DATE_COL] <= cutoff]))
@@ -190,7 +171,6 @@ def check_truncation_invariance(
 
 
 def run_all_checks(clean: pd.DataFrame, builder: Builder = build_lag_features) -> list[CheckResult]:
-    """All Step 2A checks on the real cleaned data."""
     table = builder(clean)
     cutoffs = [SPLITS["train"][1], SPLITS["val"][1]]  # the two chronological boundaries
     results = [
@@ -205,7 +185,6 @@ def run_all_checks(clean: pd.DataFrame, builder: Builder = build_lag_features) -
 
 
 def main() -> int:
-    """python -m src.lag_checks : print every check; exit code 1 if any failed."""
     results = run_all_checks(get_clean_data())
     for r in results:
         print(f"[{'PASS' if r.passed else 'FAIL'}] {r.name}\n       {r.detail}")

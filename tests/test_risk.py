@@ -1,9 +1,7 @@
-
 import pandas as pd
 import pytest
 
 from src.risk import classify_risk, add_risk_categories
-
 
 @pytest.mark.parametrize(
     "cases, expected",
@@ -20,7 +18,6 @@ from src.risk import classify_risk, add_risk_categories
 )
 def test_classify_risk_boundaries(cases, expected):
     assert classify_risk(cases) == expected
-
 
 @pytest.mark.parametrize("cases", [-1, float("nan"), float("inf"), float("-inf")])
 def test_classify_risk_rejects_invalid_values(cases):
@@ -39,9 +36,7 @@ def test_add_risk_categories():
         "Low", "Medium", "High", "Critical"
     ]
 
-    # Original DataFrame must remain unchanged.
     assert "risk_category" not in predictions.columns
-
 
 def test_add_risk_categories_requires_prediction_column():
     predictions = pd.DataFrame({"other_column": [1, 2, 3]})

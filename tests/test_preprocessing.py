@@ -1,4 +1,3 @@
-"""Tests for cleaning, causal gap filling, fail-fast behaviour and the cache."""
 import json
 
 import numpy as np

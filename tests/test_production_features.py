@@ -1,3 +1,4 @@
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -105,7 +106,6 @@ def test_current_and_future_cases_do_not_change_current_features(
 
     modified = original.copy()
 
-    # Change the current week's cases and all later cases for this ward.
     modified.loc[
         row_index:ward_indices[-1], TARGET_COL
     ] += 1000

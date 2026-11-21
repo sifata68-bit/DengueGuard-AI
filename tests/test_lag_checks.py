@@ -1,4 +1,3 @@
-"""Tests for src/lag_checks.py: the checks must pass on good code AND fail on broken code."""
 import numpy as np
 import pandas as pd
 import pytest
@@ -20,7 +19,6 @@ from tests.test_feature_engineering import make_panel
 
 
 def leaky_builder(df: pd.DataFrame) -> pd.DataFrame:
-    """A deliberately WRONG builder: rain_lag_1 peeks one week into the future."""
     table = build_lag_features(df).sort_values([WARD_COL, DATE_COL]).reset_index(drop=True)
     table["rain_lag_1"] = table.groupby(WARD_COL)[RAIN_COL].shift(-1)
     return table
@@ -91,4 +89,4 @@ def test_truncation_check_passes_for_the_pipeline_and_fails_for_a_leaky_builder(
 def test_run_all_checks_reports_failures_for_a_leaky_builder(clean):
     results = run_all_checks(clean, builder=leaky_builder)
     failed = [r.name for r in results if not r.passed]
-    assert len(failed) >= 3  # table mismatch + future invariance + truncation (both cutoffs)
+    assert len(failed) >= 3

@@ -1,13 +1,4 @@
 
-"""Production training pipeline for DengueGuard AI.
-
-Trains one model per forecast horizon using leakage-safe production features.
-
-Training data is used for fitting.
-Validation data is used for model selection.
-The test period (2024-2025) is excluded entirely from this pipeline.
-"""
-
 import json
 
 import joblib
@@ -65,7 +56,6 @@ SUMMARY_PATH = MODEL_OUTPUT_DIR / "training_summary.json"
 
 
 def prepare_split(frame, horizon, split):
-    """Return complete feature and target rows for one horizon and split."""
     part = get_split_frame(frame, horizon, split)
 
     target_column = target_name(horizon)
@@ -86,9 +76,6 @@ def prepare_split(frame, horizon, split):
 
 
 def train_models(clean, horizons=HORIZONS):
-    """Train candidates and select one model per horizon using validation."""
-
-    # Exclude the test period entirely from model development.
     development_data = clean[
         clean[DATE_COL] <= SPLITS["val"][1]
     ].copy()
@@ -96,11 +83,9 @@ def train_models(clean, horizons=HORIZONS):
     if development_data.empty:
         raise ValueError("No training or validation data available.")
 
-    # Build features and targets using development data only.
     features = build_production_features(development_data)
     targets = add_targets(development_data)
 
-    # Keep only target and split columns needed for the requested horizons.
     target_columns = (
         [
             target_name(h)
@@ -146,10 +131,8 @@ def train_models(clean, horizons=HORIZONS):
         for model_name, parameters in MODEL_CANDIDATES.items():
             model = HistGradientBoostingRegressor(**parameters)
 
-            # Fit using training data only.
             model.fit(X_train, y_train)
 
-            # Evaluate using validation data only.
             predictions = np.maximum(
                 model.predict(X_val),
                 0.0,
@@ -177,7 +160,6 @@ def train_models(clean, horizons=HORIZONS):
                 f"in-season RMSE={metrics['rmse_in_season']:.3f}"
             )
 
-        # Select using in-season RMSE, with overall RMSE as a tie-breaker.
         best_name, best_model, best_metrics = min(
             candidates,
             key=lambda item: (
@@ -215,7 +197,6 @@ def main():
     MODEL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Save the selected model for each forecast horizon.
     for horizon, model in models.items():
         model_path = (
             MODEL_OUTPUT_DIR / f"dengue_h{horizon}_model.joblib"
@@ -232,7 +213,6 @@ def main():
 
         print(f"Saved: {model_path}")
 
-    # Save validation metrics and training metadata.
     metrics.to_csv(METRICS_PATH, index=False)
 
     with open(SUMMARY_PATH, "w", encoding="utf-8") as file:

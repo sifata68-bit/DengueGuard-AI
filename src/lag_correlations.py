@@ -1,22 +1,3 @@
-"""Phase 5, Step 2B: rainfall lag correlations versus the Phase 2 findings.
-
-Run on its own with:   python -m src.lag_correlations
-
-What this is and is not
-  * It is a DESCRIPTIVE check that the new lag features carry the relationship seen in Phase 2.
-  * It is NOT evidence of forecast skill and NOT used to select features or models.
-    Skill is judged only by held-out errors against baselines (Step 2C, then Phase 7).
-  * Only the TRAIN split is used (rows whose as-of date AND target date are inside the train
-    period). The locked test split is never requested by this module.
-
-Method
-  * One row = (ward, as-of week t). Target = dengue cases of the same ward h weeks later.
-  * Pearson correlation between each rainfall feature and the horizon's target, using every
-    train row where both values exist (pairwise-complete, the same rule as Phase 2).
-  * Reported twice: over all rows, and over in-season target weeks only, which removes part of
-    the seasonal pattern that rainfall and cases share.
-  * "total delay" = lag + horizon = weeks between the rain and the cases it is compared with.
-"""
 import json
 import sys
 from pathlib import Path
@@ -37,9 +18,7 @@ from src.feature_engineering import build_lag_features
 from src.preprocessing import get_clean_data
 from src.targets import add_targets, get_split_frame, split_name, target_date_name, target_name
 
-# Phase 2 findings (from the Phase 2 report): strongest rainfall lag and its Pearson r (3 d.p.).
 HINTS = {2: (1, 0.738), 3: (0, 0.738), 4: (0, 0.685)}
-# Phase 2 also showed the strongest rain-to-cases relationship at a total delay of about 3 weeks.
 PHASE2_TOTAL_DELAY_HINT_WEEKS = 3
 
 CORRELATIONS_CSV = PROCESSED_DIR / "lag_correlations.csv"
@@ -47,7 +26,6 @@ SUMMARY_JSON = PROCESSED_DIR / "lag_correlations_summary.json"
 
 
 def build_analysis_frame(clean: pd.DataFrame) -> pd.DataFrame:
-    """Lag feature table joined with every horizon's target, target date and split label."""
     table = build_lag_features(clean)
     labelled = add_targets(clean)
     keep = [WARD_COL, DATE_COL]
@@ -57,7 +35,6 @@ def build_analysis_frame(clean: pd.DataFrame) -> pd.DataFrame:
 
 
 def correlation_table(frame: pd.DataFrame, horizons=HORIZONS) -> pd.DataFrame:
-    """Long table: one row per (horizon, rainfall feature), computed on the train split only."""
     features = [("lag", k, f"rain_lag_{k}") for k in RAIN_LAGS]
     features += [("rolling_sum", w, f"rain_sum_{w}w") for w in RAIN_ROLL_WINDOWS]
     rows = []
@@ -85,7 +62,6 @@ def correlation_table(frame: pd.DataFrame, horizons=HORIZONS) -> pd.DataFrame:
 
 
 def compare_with_hints(table: pd.DataFrame, hints: dict = HINTS) -> pd.DataFrame:
-    """For each horizon: strongest observed lag versus the Phase 2 hint, plus the 3-week ideal."""
     rows = []
     for h, (hint_lag, hint_r) in hints.items():
         lags = table[(table["horizon"] == h) & (table["kind"] == "lag")]
@@ -126,7 +102,6 @@ def save_outputs(
     csv_path: Path = CORRELATIONS_CSV,
     json_path: Path = SUMMARY_JSON,
 ) -> None:
-    """Write the long correlation table (CSV) and the hint comparison (JSON)."""
     csv_path, json_path = Path(csv_path), Path(json_path)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.parent.mkdir(parents=True, exist_ok=True)

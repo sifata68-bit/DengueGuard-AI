@@ -1,15 +1,3 @@
-
-"""Phase 5 Step 2D: assemble the rainfall-lag analysis report.
-
-Combines:
-- Step 2A independent ingestion and leakage checks
-- Step 2B train-only rainfall correlation analysis
-- Step 2C validation-only A/B/C diagnostic comparison
-
-The locked test split is never accessed.
-Run with: python -m src.lag_report
-"""
-
 import json
 import sys
 
@@ -33,7 +21,6 @@ CHECKS_JSON = PROCESSED_DIR / "lag_checks.json"
 
 
 def build_diagnostic_summary(results: pd.DataFrame) -> list[dict]:
-    """Summarise the best in-season validation result for each horizon."""
     summaries = []
 
     for horizon in HORIZONS:
@@ -61,11 +48,9 @@ def build_diagnostic_summary(results: pd.DataFrame) -> list[dict]:
 
 
 def run_report(clean: pd.DataFrame) -> dict:
-    """Run all Phase 5 Step 2 analyses and assemble their outputs."""
 
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Step 2A: independent checks.
     checks = run_all_checks(clean)
     check_records = [check.as_dict() for check in checks]
 
@@ -74,7 +59,6 @@ def run_report(clean: pd.DataFrame) -> dict:
         encoding="utf-8",
     )
 
-    # Step 2B: train-only rainfall correlations.
     analysis_frame = build_analysis_frame(clean)
     correlations = correlation_table(analysis_frame)
     hint_comparison = compare_with_hints(correlations)
@@ -86,11 +70,9 @@ def run_report(clean: pd.DataFrame) -> dict:
         json_path=PROCESSED_DIR / "lag_correlations_summary.json",
     )
 
-    # Step 2C: train-fit / validation-score A/B/C comparison.
     diagnostic_results = run_diagnostic(clean)
     diagnostic_results.to_csv(DIAGNOSTIC_CSV, index=False)
 
-    # Assemble the final summary.
     summary = {
         "phase": "Phase 5 Step 2",
         "test_split_accessed": False,

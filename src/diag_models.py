@@ -1,17 +1,3 @@
-
-"""Phase 5 Step 2C: diagnostic A/B/C model comparison.
-
-A0: current-week weather only.
-A:  A0 + rainfall lags and rolling sums.
-B0: diagnostic dengue case history only.
-B:  A + diagnostic dengue case history.
-C:  Phase 2 baseline forecasters.
-
-Case-history features are diagnostic-only. They are not added to the
-production feature engineering pipeline.
-
-Only train and validation splits are accessed. The test split stays locked.
-"""
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import HistGradientBoostingRegressor
@@ -71,10 +57,7 @@ OUTPUT_PATH = PROCESSED_DIR / "lag_abc_diagnostic_val.csv"
 
 
 def build_diagnostic_frame(clean: pd.DataFrame) -> pd.DataFrame:
-    """Build production weather features, diagnostic case features and targets.
 
-    Case history is built separately and never enters feature_engineering.py.
-    """
     lag_features = build_lag_features(clean)
 
     ordered = clean.sort_values([WARD_COL, DATE_COL]).reset_index(drop=True)
@@ -119,7 +102,6 @@ def build_diagnostic_frame(clean: pd.DataFrame) -> pd.DataFrame:
         validate="one_to_one",
     )
 
-    # Add the existing Phase 2 rolling baseline input.
     baseline_frame = add_baseline_inputs(clean)
     frame = frame.merge(
     baseline_frame[KEY_COLUMNS + [TARGET_COL, "cases_roll4_mean"]],
@@ -127,7 +109,7 @@ def build_diagnostic_frame(clean: pd.DataFrame) -> pd.DataFrame:
     how="inner",
     validate="one_to_one",
 )
-    
+
 
     return frame
 
@@ -137,7 +119,6 @@ def _common_split_rows(
     horizon: int,
     split: str,
 ) -> pd.DataFrame:
-    """Return identical eligible rows for every diagnostic model group."""
     if split not in ("train", "val"):
         raise ValueError("Diagnostic evaluation only permits train and val.")
 
@@ -162,7 +143,6 @@ def run_diagnostic(
     clean: pd.DataFrame,
     horizons=HORIZONS,
 ) -> pd.DataFrame:
-    """Fit diagnostic groups on train and compare them on validation only."""
     frame = build_diagnostic_frame(clean)
     results = []
 
@@ -172,7 +152,6 @@ def run_diagnostic(
         train = _common_split_rows(frame, h, "train")
         val = _common_split_rows(frame, h, "val")
 
-        # Every group must use precisely the same evaluation rows.
         if not train.index.is_unique or not val.index.is_unique:
             raise AssertionError("Duplicate rows found in diagnostic splits.")
 
@@ -180,7 +159,6 @@ def run_diagnostic(
         y_val = val[target_name(h)].to_numpy(dtype=float)
         target_dates = val[target_date_name(h)]
 
-        # A0, A, B0 and B: fit independently on training data.
         for group, feature_columns in MODEL_GROUPS.items():
             model = HistGradientBoostingRegressor(
                 early_stopping=False,
@@ -204,7 +182,6 @@ def run_diagnostic(
                 }
             )
 
-        # C: original Phase 2 baselines, fitted using training-period data.
         baseline_preds = baseline_predictions(
             frame,
             val,
@@ -230,7 +207,6 @@ def run_diagnostic(
 
     result = pd.DataFrame(results)
 
-    # Verify that every model uses identical validation rows per horizon.
     for h in horizons:
         counts = result.loc[
             result["horizon_weeks"] == h, "n"
