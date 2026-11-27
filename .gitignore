@@ -7,3 +7,8 @@ __pycache__/
 .vscode/
 .streamlit/secrets.toml
 data/processed/
+
+.pytest_cache/
+*.phase1-backup
+*.phase2-backup
+*.pre-final-backup
