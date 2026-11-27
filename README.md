@@ -11,6 +11,19 @@ The forecasting pipeline uses historical dengue surveillance, weather observatio
 
 > **Important:** This is an educational hackathon decision-support project. Forecasts and scenario outputs are estimates, not official public-health alerts, medical advice, confirmed resource requirements, or instructions to transfer patients.
 
+## Phase 2 integration status — 27 November 2026
+
+The Phase 2 backend and frontend integration has been merged into the repository's `main` branch.
+
+- Resource Allocation supports risk-prioritized distribution of saline bags and diagnostic kits from operator-provided inventory, demand assumptions, and city-level spraying-crew limits.
+- Hospital Surge compares forecast-derived bed demand with operator-provided ward capacity and produces same-city overflow planning recommendations.
+- The Vector Control simulation backend supports scenario-based intervention planning, constrained team assignment, estimated case reductions, and resource-savings calculations. The Streamlit page remains a preview and is not yet connected end-to-end to the simulation service.
+- The Dispatch Center remains a preview; dispatch generation and external messaging are not operational.
+- The full automated test suite passed **214 tests** at this integration checkpoint.
+- The team confirmed that the local Streamlit application pages loaded during a manual browser smoke check. The deployed application was also reported working by the team.
+
+These are checkpoint results, not a guarantee that future changes or every operational scenario will behave identically. Re-run tests and verify the deployment after subsequent changes.
+
 ## What the system does
 
 ### Dengue forecasting
@@ -127,7 +140,7 @@ With the virtual environment activated:
 python -m pytest -q
 ```
 
-At the Phase 2 integration checkpoint, the full suite completed with **214 passing tests**. Run the tests again after making changes; the count may change as the project evolves.
+At the 27 November 2026 Phase 2 integration checkpoint, the full suite completed with **214 passing tests**. Run the tests again after making changes; the count may change as the project evolves.
 
 ## Machine-learning workflow
 
