@@ -97,7 +97,45 @@ T = {
         "risk_guide_high": "6 to fewer than 10 predicted cases",
         "risk_guide_critical": "10 or more predicted cases",
         "risk_guide_method": "These project-specific thresholds were derived from non-zero dengue case counts during the June–October dengue season in the training period (2016–2021). They are not official government or public-health alert thresholds.",
-        "risk_guide_unit": "Predicted cases in a single future week · not cumulative"
+        "risk_guide_unit": "Predicted cases in a single future week · not cumulative",
+        "resource_allocation": "Resource Allocation",
+        "hospital_surge": "Hospital Surge",
+        "vector_simulator": "Vector Control Simulator",
+        "dispatch_center": "Dispatch Center",
+        "resource_desc": "Review regional supply settings and prepare ward-level resource allocations.",
+        "hospital_desc": "Review hospital bed demand, capacity, utilization and same-city overflow routing.",
+        "vector_desc": "Explore planned vector-control interventions and their projected downstream effects.",
+        "dispatch_desc": "Prepare ward-specific operational notices for field teams and local officers.",
+        "prototype_notice": "Frontend preview only. Backend calculations are not connected yet; no operational results are being generated.",
+        "regional_stock": "Available Regional Stock",
+        "spraying_crews": "Total Available Spraying Crews",
+        "stock_preview": "Stock availability preview",
+        "crew_preview": "Crew capacity preview",
+        "saline": "Saline Bags",
+        "diagnostic_kits": "Diagnostic Kits",
+        "beds_required": "Hospital Beds Required",
+        "spraying_assignments": "Spraying Crew Assignments",
+        "awaiting_backend": "Awaiting backend integration",
+        "hospital_capacity": "Hospital Capacity Overview",
+        "bed_demand": "Bed Demand",
+        "available_beds": "Available Beds",
+        "city_utilization": "City-wide Utilization",
+        "ward_deficits": "Ward-level Bed Deficits",
+        "overflow_routes": "Overflow Transfer Routes",
+        "select_wards": "Select wards for intervention",
+        "intervention_teams": "Available Vector-Control Teams",
+        "simulation_horizon": "Simulation Horizon",
+        "baseline_cases": "Baseline Cases",
+        "simulated_cases": "Simulated Cases",
+        "cases_prevented": "Estimated Cases Prevented",
+        "dispatch_ward": "Select a ward",
+        "dispatch_format": "Dispatch Format",
+        "dispatch_preview": "Dispatch Document Preview",
+        "generate_dispatch": "Generate Dispatch Document",
+        "dispatch_unavailable": "Dispatch generation will be enabled after the export module is integrated.",
+        "no_backend_results": "No calculated results are available yet.",
+        "ui_control_note": "This control is a frontend preview and does not change resource allocations yet.",
+        "select_channel": "Choose an output format"
     },
     "বাংলা": {
         "dashboard": "ড্যাশবোর্ড",
@@ -172,7 +210,45 @@ T = {
         "risk_guide_high": "৬ থেকে ১০ জনের কম সম্ভাব্য আক্রান্ত",
         "risk_guide_critical": "১০ বা তার বেশি সম্ভাব্য আক্রান্ত",
         "risk_guide_method": "এই প্রকল্পের ঝুঁকির সীমাগুলো ২০১৬–২০২১ সালের প্রশিক্ষণ ডেটার জুন–অক্টোবর ডেঙ্গু মৌসুমে শূন্যের বেশি আক্রান্তের সংখ্যা থেকে নির্ধারণ করা হয়েছে। এগুলো সরকারি বা জনস্বাস্থ্য কর্তৃপক্ষের আনুষ্ঠানিক সতর্কতার সীমা নয়।",
-        "risk_guide_unit": "একটি ভবিষ্যৎ সপ্তাহের সম্ভাব্য আক্রান্ত · মোট বা ক্রমযোজিত সংখ্যা নয়"
+        "risk_guide_unit": "একটি ভবিষ্যৎ সপ্তাহের সম্ভাব্য আক্রান্ত · মোট বা ক্রমযোজিত সংখ্যা নয়",
+        "resource_allocation": "সম্পদ বরাদ্দ",
+        "hospital_surge": "হাসপাতালের চাপ",
+        "vector_simulator": "ভেক্টর নিয়ন্ত্রণ সিমুলেটর",
+        "dispatch_center": "ডিসপ্যাচ সেন্টার",
+        "resource_desc": "আঞ্চলিক সরবরাহের সেটিংস এবং ওয়ার্ডভিত্তিক সম্পদ বরাদ্দ পর্যালোচনা করুন।",
+        "hospital_desc": "হাসপাতালের শয্যার চাহিদা, সক্ষমতা, ব্যবহার এবং একই শহরের মধ্যে স্থানান্তর পর্যালোচনা করুন।",
+        "vector_desc": "পরিকল্পিত ভেক্টর নিয়ন্ত্রণ কার্যক্রম এবং সম্ভাব্য পরবর্তী প্রভাব দেখুন।",
+        "dispatch_desc": "মাঠকর্মী ও স্থানীয় কর্মকর্তাদের জন্য ওয়ার্ডভিত্তিক কার্যক্রমের নোটিশ প্রস্তুত করুন।",
+        "prototype_notice": "শুধু ফ্রন্টএন্ড প্রিভিউ। ব্যাকএন্ড গণনা এখনো যুক্ত হয়নি; কোনো কার্যকরী ফলাফল তৈরি হচ্ছে না।",
+        "regional_stock": "আঞ্চলিকভাবে উপলব্ধ মজুত",
+        "spraying_crews": "মোট উপলব্ধ স্প্রে দল",
+        "stock_preview": "মজুতের প্রিভিউ",
+        "crew_preview": "দলের সক্ষমতার প্রিভিউ",
+        "saline": "স্যালাইন ব্যাগ",
+        "diagnostic_kits": "ডায়াগনস্টিক কিট",
+        "beds_required": "প্রয়োজনীয় হাসপাতাল শয্যা",
+        "spraying_assignments": "স্প্রে দলের বরাদ্দ",
+        "awaiting_backend": "ব্যাকএন্ড সংযোগের অপেক্ষায়",
+        "hospital_capacity": "হাসপাতালের সক্ষমতার সারসংক্ষেপ",
+        "bed_demand": "শয্যার চাহিদা",
+        "available_beds": "উপলব্ধ শয্যা",
+        "city_utilization": "শহরব্যাপী শয্যার ব্যবহার",
+        "ward_deficits": "ওয়ার্ডভিত্তিক শয্যার ঘাটতি",
+        "overflow_routes": "অতিরিক্ত রোগী স্থানান্তরের রুট",
+        "select_wards": "কার্যক্রমের জন্য ওয়ার্ড নির্বাচন করুন",
+        "intervention_teams": "উপলব্ধ ভেক্টর নিয়ন্ত্রণ দল",
+        "simulation_horizon": "সিমুলেশনের সময়সীমা",
+        "baseline_cases": "ভিত্তিমূলক আক্রান্ত",
+        "simulated_cases": "সিমুলেশনের আক্রান্ত",
+        "cases_prevented": "আনুমানিক প্রতিরোধকৃত আক্রান্ত",
+        "dispatch_ward": "ওয়ার্ড নির্বাচন করুন",
+        "dispatch_format": "ডিসপ্যাচের ফরম্যাট",
+        "dispatch_preview": "ডিসপ্যাচ নথির প্রিভিউ",
+        "generate_dispatch": "ডিসপ্যাচ নথি তৈরি করুন",
+        "dispatch_unavailable": "এক্সপোর্ট মডিউল যুক্ত হলে ডিসপ্যাচ তৈরি চালু হবে।",
+        "no_backend_results": "এখনো কোনো গণনাকৃত ফলাফল পাওয়া যায়নি।",
+        "ui_control_note": "এটি ফ্রন্টএন্ড প্রিভিউ; এখনো সম্পদ বরাদ্দ পরিবর্তন করে না।",
+        "select_channel": "আউটপুট ফরম্যাট নির্বাচন করুন"
     }
 }
 
@@ -760,10 +836,21 @@ with st.sidebar:
 
     st.markdown(f"**{t['navigation']}**")
 
+    page_labels = {
+        "dashboard": t["dashboard"],
+        "ward_forecast": t["ward_forecast"],
+        "resource_allocation": t["resource_allocation"],
+        "hospital_surge": t["hospital_surge"],
+        "vector_simulator": t["vector_simulator"],
+        "dispatch_center": t["dispatch_center"],
+    }
+
     page = st.radio(
         "Navigation",
-        [t["dashboard"], t["ward_forecast"]],
+        list(page_labels.keys()),
+        format_func=lambda page_id: page_labels[page_id],
         label_visibility="collapsed",
+        key="page_navigation",
     )
 
     st.divider()
@@ -880,7 +967,7 @@ st.caption(
     f"{t['available_date']}: {selected_as_of_date.strftime('%d %B %Y')}"
 )
 
-if page == t["dashboard"]:
+if page == "dashboard":
     st.markdown(f"### {t['overview']}")
     st.caption(t["overview_desc"])
 
@@ -1096,7 +1183,7 @@ if page == t["dashboard"]:
     except Exception as exc:
         st.error(f"Could not generate the all-ward overview: {exc}")
 
-else:
+elif page == "ward_forecast":
     st.markdown(f"### {t['ward_forecast']}")
     st.caption(t["forecast_page_desc"])
 
@@ -1302,8 +1389,171 @@ else:
         except Exception as exc:
             st.error(f"Forecast generation failed: {exc}")
 
+
+
+else:
+    st.info(t["prototype_notice"])
+
+    if page == "resource_allocation":
+        st.markdown(f"### {t['resource_allocation']}")
+        st.caption(t["resource_desc"])
+
+        control_col, crew_col = st.columns(2)
+
+        with control_col:
+            stock_percentage = st.slider(
+                t["regional_stock"],
+                min_value=30,
+                max_value=100,
+                value=100,
+                step=5,
+                key="resource_stock_preview",
+            )
+
+        with crew_col:
+            crew_count = st.number_input(
+                t["spraying_crews"],
+                min_value=0,
+                max_value=1000,
+                value=0,
+                step=1,
+                key="resource_crew_preview",
+            )
+
+        st.caption(t["ui_control_note"])
+        metric_cols = st.columns(4)
+
+        for col, label in zip(
+            metric_cols,
+            [t["saline"], t["diagnostic_kits"], t["beds_required"], t["spraying_assignments"]],
+        ):
+            with col:
+                st.metric(label, "—", help=t["awaiting_backend"])
+
+        st.markdown(f"#### {t['stock_preview']}")
+        st.caption(f"{stock_percentage}% · {t['ui_control_note']}")
+        st.markdown(f"#### {t['crew_preview']}")
+        st.caption(f"{crew_count} · {t['ui_control_note']}")
+        st.warning(t["no_backend_results"])
+
+    elif page == "hospital_surge":
+        st.markdown(f"### {t['hospital_surge']}")
+        st.caption(t["hospital_desc"])
+
+        st.markdown(f"#### {t['hospital_capacity']}")
+        metric_cols = st.columns(3)
+
+        for col, label in zip(
+            metric_cols,
+            [t["bed_demand"], t["available_beds"], t["city_utilization"]],
+        ):
+            with col:
+                st.metric(label, "—", help=t["awaiting_backend"])
+
+        left_col, right_col = st.columns(2)
+
+        with left_col:
+            st.markdown(f"#### {t['ward_deficits']}")
+            st.dataframe(
+                pd.DataFrame(columns=[t["ward"], t["bed_demand"], t["available_beds"]]),
+                width="stretch",
+                hide_index=True,
+            )
+
+        with right_col:
+            st.markdown(f"#### {t['overflow_routes']}")
+            st.dataframe(
+                pd.DataFrame(columns=[t["ward"], t["city_name"], t["available_beds"]]),
+                width="stretch",
+                hide_index=True,
+            )
+
+        st.warning(t["no_backend_results"])
+
+    elif page == "vector_simulator":
+        st.markdown(f"### {t['vector_simulator']}")
+        st.caption(t["vector_desc"])
+
+        available_wards = sorted(clean_data[WARD_COL].dropna().unique().tolist())
+
+        selected_wards = st.multiselect(
+            t["select_wards"],
+            available_wards,
+            key="vector_ward_preview",
+        )
+
+        control_col, horizon_col = st.columns(2)
+
+        with control_col:
+            intervention_teams = st.number_input(
+                t["intervention_teams"],
+                min_value=0,
+                max_value=1000,
+                value=0,
+                step=1,
+                key="vector_team_preview",
+            )
+
+        with horizon_col:
+            simulation_horizon = st.selectbox(
+                t["simulation_horizon"],
+                [2, 3, 4],
+                format_func=lambda weeks: f"{weeks} weeks",
+                key="vector_horizon_preview",
+            )
+
+        st.caption(t["ui_control_note"])
+        metric_cols = st.columns(3)
+
+        for col, label in zip(
+            metric_cols,
+            [t["baseline_cases"], t["simulated_cases"], t["cases_prevented"]],
+        ):
+            with col:
+                st.metric(label, "—", help=t["awaiting_backend"])
+
+        st.caption(
+            f"{len(selected_wards)} {t['wards']} · "
+            f"{intervention_teams} · {simulation_horizon} weeks"
+        )
+        st.warning(t["no_backend_results"])
+
+    elif page == "dispatch_center":
+        st.markdown(f"### {t['dispatch_center']}")
+        st.caption(t["dispatch_desc"])
+
+        available_wards = sorted(clean_data[WARD_COL].dropna().unique().tolist())
+
+        selected_dispatch_ward = st.selectbox(
+            t["dispatch_ward"],
+            available_wards,
+            key="dispatch_ward_preview",
+        )
+
+        dispatch_format = st.radio(
+            t["dispatch_format"],
+            ["SMS", "WhatsApp", "PDF", "HTML"],
+            horizontal=True,
+            key="dispatch_format_preview",
+        )
+
+        st.markdown(f"#### {t['dispatch_preview']}")
+        st.caption(
+            f"{t['ward']}: {selected_dispatch_ward} · "
+            f"{t['dispatch_format']}: {dispatch_format}"
+        )
+        st.info(t["dispatch_unavailable"])
+        st.button(
+            t["generate_dispatch"],
+            type="primary",
+            width="stretch",
+            disabled=True,
+        )
+
+
 st.divider()
-render_risk_guide()
+if page in ("dashboard", "ward_forecast"):
+    render_risk_guide()
 st.divider()
 
 st.caption("DengueGuard AI")
