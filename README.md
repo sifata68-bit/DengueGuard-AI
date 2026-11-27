@@ -1,210 +1,180 @@
-DengueGuard AI
+# DengueGuard AI
 
-AI-powered urban dengue outbreak prediction and ward-level risk forecasting system for Bangladesh.
+**Team:** HackSync  
+**Project:** EDU AI Engineering Hackathon 2026  
+**Application:** https://dengueguard-ai.streamlit.app/  
+**Repository:** https://github.com/sifata68-bit/DengueGuard-AI
 
-DengueGuard AI forecasts dengue cases 2, 3, and 4 weeks ahead across 60 wards in five urban areas. It combines historical dengue cases, weather patterns, rainfall lag features, and environmental vulnerability indicators to support ward-level risk monitoring.
+DengueGuard AI is a ward-level dengue forecasting and operational decision-support application for Bangladesh. It forecasts dengue cases 2, 3, and 4 weeks ahead across 60 wards in five urban areas, then presents risk information and planning tools through a Streamlit dashboard.
 
-FEATURES
+The forecasting pipeline uses historical dengue surveillance, weather observations, rainfall lag features, and environmental indicators. The application also includes resource allocation and hospital surge planning tools, plus a vector-control simulation backend.
 
-- Ward-level dengue forecasts for 2, 3, and 4 weeks ahead.
-- Multi-week rainfall lag and rolling rainfall features.
-- Historical dengue case trend features using previous weeks only.
-- Separate machine learning models for each forecast horizon.
-- Four risk categories: Low, Medium, High, and Critical.
-- Bangladesh-wide risk overview with city and forecast horizon filters.
-- Individual ward forecasts with weather and environmental indicators.
-- Interactive Streamlit dashboard with dark and light themes.
-- English and Bangla interface support.
-- Local model inference using saved Joblib models.
+> **Important:** This is an educational hackathon decision-support project. Forecasts and scenario outputs are estimates, not official public-health alerts, medical advice, confirmed resource requirements, or instructions to transfer patients.
 
-DATASET
+## What the system does
 
-The project uses the hackathon-provided historical dataset:
+### Dengue forecasting
+- Generates ward-level forecasts for 2-, 3-, and 4-week horizons.
+- Uses a separate locally trained model for each horizon.
+- Combines historical dengue counts, weather, rainfall lags and rolling rainfall, environmental vulnerability, and calendar features.
+- Classifies forecast risk as Low, Medium, High, or Critical.
+- Displays nationwide, city-level, and ward-level information in the Streamlit application.
 
-`data/raw/hackathon_preli_dataset.xlsx`
+### Operational planning
+- **Resource Allocation:** prioritizes wards and allocates available saline bags and diagnostic kits using supplied inventory and per-case demand assumptions. It also supports city-level spraying-crew limits.
+- **Hospital Surge:** compares estimated bed demand with user-provided ward capacity, identifies overloaded wards, and creates same-city overflow routing recommendations.
+- **Vector Control backend:** simulates a user-defined intervention scenario, allocates a limited number of teams by risk and population density, and estimates cases and resource use avoided. The current Streamlit page is still a preview and is not yet connected to this backend.
+- **Dispatch Center:** currently a UI preview; dispatch generation is disabled.
 
-Dataset coverage:
+The resource and hospital planning tools depend on user-supplied operational inputs. Scenario assumptions must not be presented as verified medical or public-health standards.
 
-- 31,320 weekly observations.
-- 60 wards.
-- Five city areas: Chattogram, Dhaka North, Dhaka South, Gazipur, and Narayanganj.
-- Historical period: 2016-2025.
+## Geographic and dataset coverage
 
-The dataset includes dengue cases, temperature, rainfall, relative humidity, population density, waterlogging risk, and sanitation indicators.
+The source dataset is `data/raw/hackathon_preli_dataset.xlsx`.
 
-TECHNOLOGY STACK
+| Item | Coverage |
+|---|---|
+| Weekly records | 31,320 |
+| Wards | 60 |
+| Urban areas | 5 |
+| Historical period | 2016–2025 |
+| Forecast horizons | 2, 3, and 4 weeks |
+
+The five urban areas are Chattogram, Dhaka North, Dhaka South, Gazipur, and Narayanganj.
+
+The original data includes dengue case counts, temperature, rainfall, relative humidity, population density, waterlogging risk, and sanitation indicators. The cleaned dataset is stored under `data/processed/` and is generated locally from the raw source.
+
+The latest observation in the supplied dataset is dated **29 December 2025**. The application does not automatically obtain live 2026 dengue surveillance or weather data.
+
+## Technology
 
 - Python 3.11
-- Pandas and NumPy
-- Scikit-learn
-- Joblib
 - Streamlit
+- Pandas and NumPy
+- scikit-learn
+- Joblib
 - Plotly
-- Pytest
+- pytest
 
-PROJECT STRUCTURE
+Forecast inference uses locally stored Joblib models. No external weather, dengue-prediction, or LLM API is required for the local forecasting workflow.
+
+## Repository layout
 
 ```text
 DengueGuard-AI/
-|-- app.py
-|-- requirements.txt
-|-- README.md
-|-- ARCHITECTURE.md
-|-- CONTRACT.md
-|-- data/
-|   |-- raw/
-|   |-- processed/
-|-- models/
-|   |-- production/
-|-- src/
-|-- tests/
-|-- assets/
+├── app.py
+├── requirements.txt
+├── README.md
+├── ARCHITECTURE.md
+├── data/
+│   ├── raw/
+│   └── processed/
+├── models/
+│   └── production/
+├── src/
+│   ├── config.py
+│   ├── data_loader.py
+│   ├── preprocessing.py
+│   ├── feature_engineering.py
+│   ├── predict.py
+│   ├── hospital_surge.py
+│   ├── resource_allocation.py
+│   ├── vector_control.py
+│   └── vector_control_service.py
+└── tests/
 ```
 
-SETUP AND INSTALLATION
+Some generated data and model artifacts are intentionally not tracked in Git. See `.gitignore` and the setup instructions below.
 
-1. Clone the repository
+## Run locally (Windows PowerShell)
 
-```bash
-git clone https://github.com/sifata68-bit/DengueGuard-AI.git
-cd DengueGuard-AI
-```
+From the repository root:
 
-2. Create a virtual environment
+1. Create a Python 3.11 virtual environment:
 
-```bash
+```powershell
 py -3.11 -m venv venv
 ```
 
-3. Activate the environment
-
-Windows PowerShell:
+2. Activate it:
 
 ```powershell
 .\venv\Scripts\Activate.ps1
 ```
 
-4. Install dependencies
+3. Install dependencies:
 
-```bash
+```powershell
+python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-RUN THE APPLICATION
+4. Ensure the supplied raw dataset and production model artifacts are present in their expected locations. The processed dataset is generated by the preprocessing pipeline.
 
-From the project root, with the virtual environment activated:
+5. Start the application:
 
-```bash
-streamlit run app.py
+```powershell
+python -m streamlit run app.py
 ```
 
-Streamlit will provide a local URL to open the dashboard in your browser.
+Streamlit prints a local address, usually http://localhost:8501.
 
-The application uses the locally stored dataset and trained models. No external API key is required for local prediction.
+## Run tests
 
-MODEL DEVELOPMENT
+With the virtual environment activated:
 
-The dataset is split chronologically:
-
-| Split | Period | Purpose |
-|---|---|---|
-| Training | 2016-2021 | Model fitting |
-| Validation | 2022-2023 | Model selection |
-| Test | 2024-2025 | Reserved for final evaluation |
-
-Separate HistGradientBoostingRegressor models are trained for each forecast horizon.
-
-Production features include:
-
-- Current-week weather conditions.
-- Rainfall lags and rolling rainfall sums.
-- Ward-level environmental vulnerability indicators.
-- Calendar and seasonal features.
-- Previous dengue case counts and rolling historical averages.
-
-Current-week dengue cases are excluded from production features. Historical dengue features use only observations available before the forecast issue date.
-
-Models are saved locally using Joblib for efficient inference.
-
-See `ARCHITECTURE.md` for the system design, data flow, chronological splitting, leakage prevention, and model selection details.
-
-RISK CATEGORIES
-
-| Category | Predicted Dengue Cases |
-|---|---|
-| Low | Below 3 |
-| Medium | 3 to below 6 |
-| High | 6 to below 10 |
-| Critical | 10 or above |
-
-These provisional model-based thresholds were derived from non-zero dengue case counts during the June-October dengue season in the training period (2016-2021). They are not official government or public-health alert thresholds.
-
-Predicted cases represent an individual future week, not cumulative cases.
-
-TESTING
-
-Run the project test suite:
-
-```bash
+```powershell
 python -m pytest -q
 ```
 
-The project includes tests for preprocessing, feature engineering, rainfall lag calculations, leakage prevention, model predictions, and other pipeline components.
+At the Phase 2 integration checkpoint, the full suite completed with **214 passing tests**. Run the tests again after making changes; the count may change as the project evolves.
 
-GIT HISTORY & DEVELOPMENT PROCESS
+## Machine-learning workflow
 
-DengueGuard AI was developed as a solo project during the EDU AI Engineering Hackathon 2026.
+The data is split chronologically to preserve time order:
 
-The Git repository maintains a chronological development history covering the major stages of implementation, including:
+| Split | Period | Purpose |
+|---|---|---|
+| Training | 2016–2021 | Fit candidate models |
+| Validation | 2022–2023 | Model selection and tuning |
+| Test | 2024–2025 | Held-out evaluation period |
 
-- Initial project setup and repository integration.
-- Data analysis, forecasting targets, and baseline evaluation.
-- Data cleaning, validation, and preprocessing.
-- Multi-week rainfall lag and rolling feature engineering.
-- Leakage checks and diagnostic model comparisons.
-- Production model training and prediction pipeline.
-- Interactive dashboard implementation.
-- System architecture and project documentation.
+The test period is kept separate from model selection. The production pipeline uses 25 engineered features, including current weather, rainfall lags and rolling values, static environmental features, calendar features, and historical dengue values. Historical dengue features use only earlier observations; current-week dengue cases are excluded from production features.
 
-Development work was organized through feature branches and merged pull requests, including the data-cleaning, ML-pipeline, and rainfall-lag work.
+Separate HistGradientBoostingRegressor models are used for the 2-, 3-, and 4-week horizons.
 
-The repository's commit history is available at:
+### Validation results
 
-https://github.com/sifata68-bit/DengueGuard-AI/commits/main
+| Horizon | MAE | RMSE |
+|---|---:|---:|
+| 2 weeks | 1.232 | 2.431 |
+| 3 weeks | 1.361 | 2.602 |
+| 4 weeks | 1.678 | 3.115 |
 
-No additional team members or distributed contributors are claimed; the project was developed by one developer.
+These are **validation regression metrics**, not classification accuracy and not test-set results. Do not convert them into an accuracy percentage.
 
-AI ASSISTANTS & EXTERNAL API DISCLOSURE
+## Risk categories
 
-AI assistants used during development:
+The four labels are Low, Medium, High, and Critical. Their thresholds are derived from training-period in-season nonzero case-count quantiles. They are project-specific model thresholds, **not official government or public-health alert thresholds**.
 
-- ChatGPT - OpenAI: Coding assistance, debugging, technical explanations, documentation, and development guidance.
-- Claude - Anthropic: Additional AI-assisted development and technical support.
+Predicted case counts refer to an individual future week, not a cumulative total.
 
-The developer reviewed, integrated, tested, and made the final implementation decisions.
+## Operational assumptions and limitations
 
-EXTERNAL API USAGE
+- Resource demand ratios must carry their source and provenance status. User-supplied or scenario-assumption values are not automatically verified standards.
+- Hospital bed demand uses a configurable beds-per-case scenario ratio. The default is an assumption, not a clinically validated ratio.
+- Hospital capacity must represent actual available beds supplied by the operator. Historical `hospital_beds_required` estimates are not hospital capacity.
+- Overflow routing is a planning recommendation; it does not confirm that beds, transport, staff, or patient transfers are available.
+- Vector-control efficacy is supplied as a scenario assumption. The simulator does not learn causal intervention effectiveness from intervention-outcome history.
+- Risk thresholds and operational ratios require review by public-health and operational experts before real-world use.
+- Forecast quality depends on historical data quality and coverage. There is no automatic live data feed in the current forecasting workflow.
 
-No external APIs are integrated into the application's forecasting workflow.
+## Team and development
 
-| Service | Usage |
-|---|---|
-| External weather API | Not used |
-| External dengue prediction API | Not used |
-| External LLM API | Not used |
-| Third-party inference API | Not used |
+DengueGuard AI is developed by **Team HackSync** for the EDU AI Engineering Hackathon 2026. Team contributions should be represented accurately by the repository's actual commit history; this README does not assign individual ownership of every file.
 
-The project uses the provided historical dataset, locally trained machine learning models, and local Joblib-based inference.
+AI assistants were used as development aids for coding support, debugging, technical explanations, and documentation. Team members are responsible for understanding, reviewing, testing, and explaining the submitted implementation. AI use should be disclosed in accordance with the event rules.
 
-This design avoids unnecessary API requests, external inference costs, and network dependencies during prediction.
+## License and use
 
-LIMITATIONS
-
-- Forecasts depend on the quality and coverage of historical data.
-- The latest dataset observation is dated 29 December 2025; forecasts are based on historical observations, not live 2026 weather or dengue reports.
-- Risk thresholds require further validation with public-health experts.
-- Model forecasts are estimates and should not replace official public-health guidance.
-
-DISCLAIMER
-
-DengueGuard AI is an educational hackathon project. Its predictions are intended for research and demonstration purposes and should not be treated as official medical advice or public-health alerts.
+No license is specified here. Unless a license is added to the repository, do not assume the code is licensed for unrestricted reuse.
