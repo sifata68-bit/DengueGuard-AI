@@ -1,3 +1,4 @@
+
 from pathlib import Path
 
 import pandas as pd
@@ -15,7 +16,7 @@ def load_raw(path: Path = RAW_DATA_PATH) -> pd.DataFrame:
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(
-            f"Dataset not found at {path}. Copy hackathon_preli_dataset.xlsx into data/raw/."
+            f"Dataset not found at {path}. Check that the Phase 2 dataset exists in data/raw/."
         )
     df = pd.read_excel(path, sheet_name=SHEET_NAME)
     missing = [c for c in REQUIRED_COLS if c not in df.columns]
