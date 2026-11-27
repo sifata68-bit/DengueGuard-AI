@@ -1,0 +1,61 @@
+ward_id,city,capacity_beds
+CCC_Ward_01,Chattogram,25
+CCC_Ward_02,Chattogram,25
+CCC_Ward_03,Chattogram,25
+CCC_Ward_04,Chattogram,25
+CCC_Ward_05,Chattogram,25
+CCC_Ward_06,Chattogram,25
+CCC_Ward_07,Chattogram,25
+CCC_Ward_08,Chattogram,25
+CCC_Ward_09,Chattogram,25
+CCC_Ward_10,Chattogram,25
+DNCC_Ward_01,Dhaka North,25
+DNCC_Ward_02,Dhaka North,25
+DNCC_Ward_03,Dhaka North,25
+DNCC_Ward_04,Dhaka North,25
+DNCC_Ward_05,Dhaka North,25
+DNCC_Ward_06,Dhaka North,25
+DNCC_Ward_07,Dhaka North,25
+DNCC_Ward_08,Dhaka North,25
+DNCC_Ward_09,Dhaka North,25
+DNCC_Ward_10,Dhaka North,25
+DNCC_Ward_11,Dhaka North,25
+DNCC_Ward_12,Dhaka North,25
+DNCC_Ward_13,Dhaka North,25
+DNCC_Ward_14,Dhaka North,25
+DNCC_Ward_15,Dhaka North,25
+DNCC_Ward_16,Dhaka North,25
+DNCC_Ward_17,Dhaka North,25
+DNCC_Ward_18,Dhaka North,25
+DNCC_Ward_19,Dhaka North,25
+DNCC_Ward_20,Dhaka North,25
+DSCC_Ward_01,Dhaka South,25
+DSCC_Ward_02,Dhaka South,25
+DSCC_Ward_03,Dhaka South,25
+DSCC_Ward_04,Dhaka South,25
+DSCC_Ward_05,Dhaka South,25
+DSCC_Ward_06,Dhaka South,25
+DSCC_Ward_07,Dhaka South,25
+DSCC_Ward_08,Dhaka South,25
+DSCC_Ward_09,Dhaka South,25
+DSCC_Ward_10,Dhaka South,25
+DSCC_Ward_11,Dhaka South,25
+DSCC_Ward_12,Dhaka South,25
+DSCC_Ward_13,Dhaka South,25
+DSCC_Ward_14,Dhaka South,25
+DSCC_Ward_15,Dhaka South,25
+DSCC_Ward_16,Dhaka South,25
+DSCC_Ward_17,Dhaka South,25
+DSCC_Ward_18,Dhaka South,25
+DSCC_Ward_19,Dhaka South,25
+DSCC_Ward_20,Dhaka South,25
+GCC_Ward_01,Gazipur,25
+GCC_Ward_02,Gazipur,25
+GCC_Ward_03,Gazipur,25
+GCC_Ward_04,Gazipur,25
+GCC_Ward_05,Gazipur,25
+NCC_Ward_01,Narayanganj,25
+NCC_Ward_02,Narayanganj,25
+NCC_Ward_03,Narayanganj,25
+NCC_Ward_04,Narayanganj,25
+NCC_Ward_05,Narayanganj,25

@@ -1,4 +1,3 @@
-
 import math
 
 import numpy as np
@@ -22,6 +21,8 @@ ALLOWED_PARAMETER_STATUSES = {
     "user_supplied",
     "scenario_assumption",
 }
+
+DEFAULT_BEDS_PER_CASE = 0.253
 
 
 def _require_columns(dataframe, required, name):
@@ -97,7 +98,6 @@ def _validate_demand_parameters(demand_parameters):
             )
 
         required = {"per_case", "source", "status"}
-
         missing = required - set(parameters)
 
         if missing:
@@ -137,6 +137,44 @@ def _validate_demand_parameters(demand_parameters):
         }
         for resource in RESOURCE_COLUMNS
     }
+
+
+def _validate_spraying_crews(total_spraying_crews):
+    if isinstance(total_spraying_crews, bool):
+        raise ValueError("total_spraying_crews must be a nonnegative integer.")
+
+    try:
+        value = float(total_spraying_crews)
+    except (TypeError, ValueError):
+        raise ValueError(
+            "total_spraying_crews must be a nonnegative integer."
+        ) from None
+
+    if not math.isfinite(value) or value < 0 or not value.is_integer():
+        raise ValueError(
+            "total_spraying_crews must be a nonnegative integer."
+        )
+
+    return int(value)
+
+
+def _validate_beds_per_case(beds_per_case):
+    if isinstance(beds_per_case, bool):
+        raise ValueError("beds_per_case must be a positive finite number.")
+
+    try:
+        value = float(beds_per_case)
+    except (TypeError, ValueError):
+        raise ValueError(
+            "beds_per_case must be a positive finite number."
+        ) from None
+
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(
+            "beds_per_case must be a positive finite number."
+        )
+
+    return value
 
 
 def _prepare_inputs(
@@ -291,6 +329,8 @@ def allocate_resources(
     stock_percentage,
     demand_parameters,
     horizon_weeks,
+    total_spraying_crews=0,
+    beds_per_case=DEFAULT_BEDS_PER_CASE,
 ):
     if isinstance(stock_percentage, bool):
         raise ValueError("stock_percentage must be between 30 and 100.")
@@ -310,6 +350,12 @@ def allocate_resources(
             "stock_percentage must be between 30 and 100."
         )
 
+    total_spraying_crews = _validate_spraying_crews(
+        total_spraying_crews
+    )
+
+    beds_per_case = _validate_beds_per_case(beds_per_case)
+
     parameters = _validate_demand_parameters(demand_parameters)
 
     prepared, inventory = _prepare_inputs(
@@ -318,6 +364,38 @@ def allocate_resources(
         regional_inventory,
         horizon_weeks,
     )
+
+    prepared["risk_priority"] = (
+        prepared["risk_category"].map(RISK_PRIORITY)
+    )
+
+    prepared = prepared.sort_values(
+        by=[
+            "risk_priority",
+            "population_density_sqkm",
+            "ward_id",
+        ],
+        ascending=[True, False, True],
+        kind="stable",
+    ).copy()
+
+    prepared["priority_rank"] = range(1, len(prepared) + 1)
+
+    prepared["hospital_beds_required"] = np.ceil(
+        prepared["predicted_cases"] * beds_per_case
+    ).astype(int)
+
+    prepared["spraying_crews_assigned"] = 0
+
+    crews_to_assign = min(
+        total_spraying_crews,
+        len(prepared),
+    )
+
+    prepared.iloc[
+        :crews_to_assign,
+        prepared.columns.get_loc("spraying_crews_assigned"),
+    ] = 1
 
     allocation_records = []
     regional_records = []
@@ -332,30 +410,12 @@ def allocate_resources(
 
         available = {
             resource: math.floor(
-                city_stock[resource]
-                * stock_percentage
-                / 100
+                city_stock[resource] * stock_percentage / 100
             )
             for resource in RESOURCE_COLUMNS
         }
 
         remaining = available.copy()
-
-        city_wards = city_wards.copy()
-
-        city_wards["risk_priority"] = (
-            city_wards["risk_category"].map(RISK_PRIORITY)
-        )
-
-        city_wards = city_wards.sort_values(
-            by=[
-                "risk_priority",
-                "population_density_sqkm",
-                "ward_id",
-            ],
-            ascending=[True, False, True],
-            kind="stable",
-        )
 
         city_demand = {
             resource: 0
@@ -367,23 +427,26 @@ def allocate_resources(
             for resource in RESOURCE_COLUMNS
         }
 
-        for city_rank, (_, ward) in enumerate(
-            city_wards.iterrows(),
-            start=1,
-        ):
+        city_wards = city_wards.copy()
+
+        for _, ward in city_wards.iterrows():
             record = {
                 "city": city,
                 "ward_id": ward["ward_id"],
                 "date": ward["date"],
                 "horizon_weeks": horizon_weeks,
-                "predicted_cases": float(
-                    ward["predicted_cases"]
-                ),
+                "predicted_cases": float(ward["predicted_cases"]),
                 "risk_category": ward["risk_category"],
                 "population_density_sqkm": float(
                     ward["population_density_sqkm"]
                 ),
-                "priority_rank": city_rank,
+                "priority_rank": int(ward["priority_rank"]),
+                "hospital_beds_required": int(
+                    ward["hospital_beds_required"]
+                ),
+                "spraying_crews_assigned": int(
+                    ward["spraying_crews_assigned"]
+                ),
             }
 
             for resource in RESOURCE_COLUMNS:
@@ -392,11 +455,7 @@ def allocate_resources(
                     * parameters[resource]["per_case"]
                 )
 
-                allocated = min(
-                    demand,
-                    remaining[resource],
-                )
-
+                allocated = min(demand, remaining[resource])
                 unmet = demand - allocated
 
                 remaining[resource] -= allocated
@@ -413,28 +472,25 @@ def allocate_resources(
             "city": city,
             "horizon_weeks": horizon_weeks,
             "stock_percentage": stock_percentage,
+            "hospital_beds_required": int(
+                city_wards["hospital_beds_required"].sum()
+            ),
+            "spraying_crews_assigned": int(
+                city_wards["spraying_crews_assigned"].sum()
+            ),
         }
 
         for resource in RESOURCE_COLUMNS:
             regional_record[f"{resource}_inventory"] = int(
                 city_stock[resource]
             )
-            regional_record[f"{resource}_available"] = (
-                available[resource]
-            )
-            regional_record[f"{resource}_demand"] = (
-                city_demand[resource]
-            )
-            regional_record[f"{resource}_allocated"] = (
-                city_allocated[resource]
-            )
+            regional_record[f"{resource}_available"] = available[resource]
+            regional_record[f"{resource}_demand"] = city_demand[resource]
+            regional_record[f"{resource}_allocated"] = city_allocated[resource]
             regional_record[f"{resource}_unmet"] = (
-                city_demand[resource]
-                - city_allocated[resource]
+                city_demand[resource] - city_allocated[resource]
             )
-            regional_record[f"{resource}_remaining"] = (
-                remaining[resource]
-            )
+            regional_record[f"{resource}_remaining"] = remaining[resource]
 
         regional_records.append(regional_record)
 
@@ -448,45 +504,57 @@ def allocate_resources(
             {
                 "resource": resource,
                 "total_inventory": int(
-                    regional_summary[
-                        f"{resource}_inventory"
-                    ].sum()
+                    regional_summary[f"{resource}_inventory"].sum()
                 ),
                 "total_available": int(
-                    regional_summary[
-                        f"{resource}_available"
-                    ].sum()
+                    regional_summary[f"{resource}_available"].sum()
                 ),
                 "total_demand": int(
-                    regional_summary[
-                        f"{resource}_demand"
-                    ].sum()
+                    regional_summary[f"{resource}_demand"].sum()
                 ),
                 "total_allocated": int(
-                    regional_summary[
-                        f"{resource}_allocated"
-                    ].sum()
+                    regional_summary[f"{resource}_allocated"].sum()
                 ),
                 "total_unmet": int(
-                    regional_summary[
-                        f"{resource}_unmet"
-                    ].sum()
+                    regional_summary[f"{resource}_unmet"].sum()
                 ),
                 "total_remaining": int(
-                    regional_summary[
-                        f"{resource}_remaining"
-                    ].sum()
+                    regional_summary[f"{resource}_remaining"].sum()
                 ),
             }
         )
 
     resource_summary = pd.DataFrame(resource_records)
 
+    shortage_warnings = ward_allocations.loc[
+        (
+            ward_allocations["saline_bags_unmet"] > 0
+        )
+        | (
+            ward_allocations["diagnostic_kits_unmet"] > 0
+        ),
+        [
+            "city",
+            "ward_id",
+            "risk_category",
+            "saline_bags_unmet",
+            "diagnostic_kits_unmet",
+        ],
+    ].copy()
+
+    critical_supply_deficits = shortage_warnings.loc[
+        shortage_warnings["risk_category"] == "Critical"
+    ].copy()
+
     return {
         "ward_allocations": ward_allocations,
         "regional_summary": regional_summary,
         "resource_summary": resource_summary,
+        "shortage_warnings": shortage_warnings,
+        "critical_supply_deficits": critical_supply_deficits,
         "horizon_weeks": horizon_weeks,
         "stock_percentage": stock_percentage,
+        "total_spraying_crews": total_spraying_crews,
+        "beds_per_case": beds_per_case,
         "demand_parameters": parameters,
     }
