@@ -1,14 +1,16 @@
 # DengueGuard AI — System Architecture
 
 **Team:** HackSync  
+**Project:** EDU AI Engineering Hackathon 2026  
 **Application:** https://dengueguard-ai.streamlit.app/  
-**Repository:** https://github.com/sifata68-bit/DengueGuard-AI
+**Repository:** https://github.com/sifata68-bit/DengueGuard-AI  
+**Documentation checkpoint:** 27 November 2026
 
 ## 1. System overview
 
-DengueGuard AI is a ward-level dengue forecasting and operational planning application for five urban areas and 60 wards in Bangladesh. The forecasting engine generates 2-, 3-, and 4-week dengue case estimates using locally trained machine-learning models. A Streamlit application presents forecasts and provides operational planning interfaces.
+DengueGuard AI is a ward-level dengue forecasting and operational decision-support application for five urban areas and 60 wards in Bangladesh. The forecasting engine generates 2-, 3-, and 4-week dengue case estimates using locally trained machine-learning models. A Streamlit application presents forecasts and operational planning interfaces.
 
-The system has three architectural layers:
+The architecture has three layers:
 
 1. **Data and forecasting:** load and validate historical data, engineer leakage-aware features, and generate forecasts using saved models.
 2. **Decision-support services:** apply risk prioritization and scenario-based calculations for resource allocation, hospital surge, and vector-control simulation.
@@ -30,15 +32,17 @@ flowchart TD
     G --> H[Ward forecasts: 2, 3, 4 weeks]
     H --> I[Risk classification]
     I --> J[Streamlit dashboard]
-    H --> K[Resource allocation]
-    H --> L[Hospital surge assessment]
-    H --> M[Vector-control simulation service]
+    H --> K[Resource allocation service]
+    H --> L[Hospital surge service]
+    H --> M[Vector control simulation service]
     K --> J
     L --> J
-    M --> J
+    M --> N[Vector Control UI integration pending]
+    N --> J
+    J --> O[Dispatch Center preview]
 ```
 
-The vector-control service exists in the backend, but the current Streamlit Vector Control page is a preview and does not yet call that service. The Dispatch Center page is also a preview with its generate action disabled. These are not represented as completed end-to-end workflows.
+Phase 2 backend and frontend integration has been merged into `main`. The Resource Allocation and Hospital Surge interfaces are part of the integrated application. The Vector Control simulation backend is implemented and tested, but the current Streamlit Vector Control page remains a preview and is not yet connected end-to-end to the simulation service. The Dispatch Center remains a preview with generation disabled.
 
 ## 3. Data sources and preprocessing
 
@@ -122,7 +126,7 @@ These thresholds are project-specific and are not official public-health alert t
 
 ## 7. Operational decision-support services
 
-### 7.1 Resource allocation — `src/resource_allocation.py`
+### 7.1 Resource Allocation — `src/resource_allocation.py`
 
 The allocation service accepts:
 - Forecasts for a selected horizon.
@@ -136,7 +140,7 @@ Wards are prioritized by risk category, then population density, with ward ID as
 
 Demand ratios are operational inputs, not universal medical standards. The service validates parameter provenance and numeric constraints; it does not verify the real-world correctness of a user-supplied ratio.
 
-### 7.2 Hospital surge — `src/hospital_surge.py`
+### 7.2 Hospital Surge — `src/hospital_surge.py`
 
 The hospital service exposes:
 - `assess_hospital_surge(forecasts, hospital_capacity, ...)`
@@ -146,40 +150,37 @@ It compares forecast-derived estimated bed demand with actual available-bed capa
 
 The default `DEFAULT_BEDS_PER_CASE = 0.253` is a scenario assumption, not a clinically validated standard. Hospital capacity must come from operator-provided capacity data; estimated bed demand must never be treated as capacity. Suggested transfers are planning outputs, not confirmed transfers.
 
-### 7.3 Vector-control simulation backend
+### 7.3 Vector Control — `src/vector_control.py` and `src/vector_control_service.py`
 
-The vector-control backend is implemented in:
-- `src/vector_control.py`
-- `src/vector_control_service.py`
+The vector-control service obtains ward forecasts and passes them to the simulator. The simulator validates scenario inputs, prioritizes wards by risk and population density, assigns up to the supplied team limit, and estimates baseline versus scenario cases and related resource savings for the selected intervention and forecast horizons.
 
-The service obtains ward forecasts and passes them to the simulator. The simulator validates the scenario inputs, prioritizes wards by risk and population density, assigns up to the supplied team limit, and estimates baseline versus scenario cases and related resource savings for the selected intervention and forecast horizons.
+Intervention effectiveness is an operator-supplied scenario assumption. The historical dataset does not contain intervention histories and measured outcomes sufficient to learn causal fogging or larvicide effectiveness. Simulated impact is not a causal estimate or a guarantee of cases prevented.
 
-Intervention effectiveness is an operator-supplied scenario assumption. The historical dataset does not contain intervention histories and measured outcomes sufficient to learn causal fogging or larvicide effectiveness. Therefore, simulated impact is not a causal estimate or a guarantee of cases prevented.
-
-**Integration status:** the backend service and tests exist, but the current Streamlit Vector Control page is a UI preview and does not yet invoke the service.
+**Integration status:** the backend service and tests are implemented. The current Streamlit Vector Control page is still a preview and does not yet invoke the service end-to-end.
 
 ### 7.4 Dispatch Center
 
-The current Dispatch Center page is a UI preview. Its generation action is disabled; automated SMS, WhatsApp, PDF, or HTML dispatch should not be described as operational functionality.
+The current Dispatch Center page is a UI preview. Its generation action is disabled. Automated SMS, WhatsApp, PDF, or HTML dispatch should not be described as operational functionality.
 
 ## 8. Streamlit presentation layer
 
 The entry point is `app.py`. It loads the cleaned dataset and connects the forecasting pipeline to dashboard pages.
 
-The current interface includes:
-- Nationwide dashboard and ward forecasting.
-- Resource Allocation form and result tables.
-- Hospital Surge capacity input, assessment, and overflow-plan display.
-- Vector Control preview.
-- Dispatch Center preview.
+The integrated interface includes the forecasting dashboard, Resource Allocation, and Hospital Surge workflows. Vector Control and Dispatch Center are currently preview interfaces, with their limitations described above.
 
 Streamlit and Plotly provide interactive presentation. The app does not require an external API key for local model inference.
 
-## 9. Validation and testing
+## 9. Validation and testing checkpoint
 
 Tests are maintained under `tests/`. The suite covers data validation and preprocessing, feature engineering and leakage checks, predictions, resource allocation, hospital surge, and vector-control simulation/service behavior.
 
-At the Phase 2 integration checkpoint, the full suite completed with **214 passing tests**. This is a recorded checkpoint, not a promise that future changes will preserve the same count. Re-run `python -m pytest -q` after modifications.
+On 27 November 2026, after the Phase 2 integration merge into `main`, the team ran:
+
+```text
+214 passed in 27.85s
+```
+
+The team also manually confirmed that the local Streamlit application pages loaded during a browser smoke check and reported that the deployed application was working. These are recorded checkpoint results; re-run tests and verify deployment after subsequent changes.
 
 ## 10. Repository structure
 
@@ -219,6 +220,7 @@ Generated processed data, local virtual environments, Python bytecode, test cach
 - Hospital capacity must be supplied as actual available capacity.
 - Overflow recommendations do not confirm staff, transport, or bed availability.
 - Vector-control effectiveness is scenario-supplied and is not causally learned from intervention outcome data.
-- The Vector Control and Dispatch Center pages are not yet fully connected end-to-end to operational backends.
+- The Vector Control page is not yet connected end-to-end to its simulation backend.
+- Dispatch Center generation and external messaging are not operational.
 
 DengueGuard AI is an educational hackathon decision-support project. It must not replace official surveillance, public-health guidance, clinical judgment, or government-issued alerts.
