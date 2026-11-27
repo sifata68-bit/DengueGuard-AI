@@ -5,6 +5,12 @@ import plotly.express as px
 from src.preprocessing import get_clean_data
 from src.predict import predict_ward, predict_all_wards
 from src.config import WARD_COL, CITY_COL, DATE_COL
+from src.resource_allocation import allocate_resources
+from src.hospital_surge import (
+    DEFAULT_BEDS_PER_CASE,
+    assess_hospital_surge,
+    generate_overflow_plan,
+)
 
 st.set_page_config(
     page_title="DengueGuard AI",
@@ -1390,170 +1396,821 @@ elif page == "ward_forecast":
             st.error(f"Forecast generation failed: {exc}")
 
 
+elif page == "resource_allocation":
+    st.markdown(f"### {t['resource_allocation']}")
+    st.caption(t["resource_desc"])
 
-else:
-    st.info(t["prototype_notice"])
+    st.info(
+        "Inventory and demand coefficients must be supplied by the "
+        "operator. Historical resource requirements are not treated "
+        "as available stock."
+    )
 
-    if page == "resource_allocation":
-        st.markdown(f"### {t['resource_allocation']}")
-        st.caption(t["resource_desc"])
+    cities = sorted(clean_data[CITY_COL].dropna().unique().tolist())
 
-        control_col, crew_col = st.columns(2)
+    with st.form("resource_allocation_form"):
+        st.markdown("#### Forecast configuration")
 
-        with control_col:
+        config_col1, config_col2 = st.columns(2)
+
+        with config_col1:
+            selected_horizon = st.selectbox(
+                "Forecast horizon",
+                [2, 3, 4],
+                format_func=lambda value: f"{value} weeks ahead",
+            )
+
+        with config_col2:
             stock_percentage = st.slider(
-                t["regional_stock"],
+                "Available stock percentage",
                 min_value=30,
                 max_value=100,
                 value=100,
                 step=5,
-                key="resource_stock_preview",
             )
 
-        with crew_col:
-            crew_count = st.number_input(
-                t["spraying_crews"],
-                min_value=0,
-                max_value=1000,
-                value=0,
-                step=1,
-                key="resource_crew_preview",
-            )
+        st.divider()
+        st.markdown("#### Regional inventory")
 
-        st.caption(t["ui_control_note"])
-        metric_cols = st.columns(4)
+        inventory_records = []
 
-        for col, label in zip(
-            metric_cols,
-            [t["saline"], t["diagnostic_kits"], t["beds_required"], t["spraying_assignments"]],
-        ):
-            with col:
-                st.metric(label, "—", help=t["awaiting_backend"])
+        for city in cities:
+            st.markdown(f"**{city}**")
 
-        st.markdown(f"#### {t['stock_preview']}")
-        st.caption(f"{stock_percentage}% · {t['ui_control_note']}")
-        st.markdown(f"#### {t['crew_preview']}")
-        st.caption(f"{crew_count} · {t['ui_control_note']}")
-        st.warning(t["no_backend_results"])
+            inventory_col1, inventory_col2 = st.columns(2)
 
-    elif page == "hospital_surge":
-        st.markdown(f"### {t['hospital_surge']}")
-        st.caption(t["hospital_desc"])
+            with inventory_col1:
+                saline_stock = st.number_input(
+                    "Saline bags available",
+                    min_value=0,
+                    value=0,
+                    step=1,
+                    key=f"saline_stock_{city}",
+                )
 
-        st.markdown(f"#### {t['hospital_capacity']}")
-        metric_cols = st.columns(3)
+            with inventory_col2:
+                diagnostic_stock = st.number_input(
+                    "Diagnostic kits available",
+                    min_value=0,
+                    value=0,
+                    step=1,
+                    key=f"diagnostic_stock_{city}",
+                )
 
-        for col, label in zip(
-            metric_cols,
-            [t["bed_demand"], t["available_beds"], t["city_utilization"]],
-        ):
-            with col:
-                st.metric(label, "—", help=t["awaiting_backend"])
+            inventory_records.append({
+                "city": city,
+                "saline_bags": saline_stock,
+                "diagnostic_kits": diagnostic_stock,
+            })
 
-        left_col, right_col = st.columns(2)
-
-        with left_col:
-            st.markdown(f"#### {t['ward_deficits']}")
-            st.dataframe(
-                pd.DataFrame(columns=[t["ward"], t["bed_demand"], t["available_beds"]]),
-                width="stretch",
-                hide_index=True,
-            )
-
-        with right_col:
-            st.markdown(f"#### {t['overflow_routes']}")
-            st.dataframe(
-                pd.DataFrame(columns=[t["ward"], t["city_name"], t["available_beds"]]),
-                width="stretch",
-                hide_index=True,
-            )
-
-        st.warning(t["no_backend_results"])
-
-    elif page == "vector_simulator":
-        st.markdown(f"### {t['vector_simulator']}")
-        st.caption(t["vector_desc"])
-
-        available_wards = sorted(clean_data[WARD_COL].dropna().unique().tolist())
-
-        selected_wards = st.multiselect(
-            t["select_wards"],
-            available_wards,
-            key="vector_ward_preview",
-        )
-
-        control_col, horizon_col = st.columns(2)
-
-        with control_col:
-            intervention_teams = st.number_input(
-                t["intervention_teams"],
-                min_value=0,
-                max_value=1000,
-                value=0,
-                step=1,
-                key="vector_team_preview",
-            )
-
-        with horizon_col:
-            simulation_horizon = st.selectbox(
-                t["simulation_horizon"],
-                [2, 3, 4],
-                format_func=lambda weeks: f"{weeks} weeks",
-                key="vector_horizon_preview",
-            )
-
-        st.caption(t["ui_control_note"])
-        metric_cols = st.columns(3)
-
-        for col, label in zip(
-            metric_cols,
-            [t["baseline_cases"], t["simulated_cases"], t["cases_prevented"]],
-        ):
-            with col:
-                st.metric(label, "—", help=t["awaiting_backend"])
+        st.divider()
+        st.markdown("#### Demand assumptions")
 
         st.caption(
-            f"{len(selected_wards)} {t['wards']} · "
-            f"{intervention_teams} · {simulation_horizon} weeks"
-        )
-        st.warning(t["no_backend_results"])
-
-    elif page == "dispatch_center":
-        st.markdown(f"### {t['dispatch_center']}")
-        st.caption(t["dispatch_desc"])
-
-        available_wards = sorted(clean_data[WARD_COL].dropna().unique().tolist())
-
-        selected_dispatch_ward = st.selectbox(
-            t["dispatch_ward"],
-            available_wards,
-            key="dispatch_ward_preview",
+            "Enter estimated resource requirements per predicted dengue "
+            "case and provide the source of each assumption."
         )
 
-        dispatch_format = st.radio(
-            t["dispatch_format"],
-            ["SMS", "WhatsApp", "PDF", "HTML"],
-            horizontal=True,
-            key="dispatch_format_preview",
-        )
+        demand_col1, demand_col2 = st.columns(2)
 
-        st.markdown(f"#### {t['dispatch_preview']}")
-        st.caption(
-            f"{t['ward']}: {selected_dispatch_ward} · "
-            f"{t['dispatch_format']}: {dispatch_format}"
-        )
-        st.info(t["dispatch_unavailable"])
-        st.button(
-            t["generate_dispatch"],
+        with demand_col1:
+            saline_per_case = st.number_input(
+                "Saline bags per case",
+                min_value=0.0,
+                value=0.0,
+                step=0.1,
+                format="%.3f",
+            )
+
+            saline_source = st.text_input(
+                "Saline demand source",
+                placeholder="Enter guideline, study, or reference",
+            )
+
+        with demand_col2:
+            diagnostic_per_case = st.number_input(
+                "Diagnostic kits per case",
+                min_value=0.0,
+                value=0.0,
+                step=0.1,
+                format="%.3f",
+            )
+
+            diagnostic_source = st.text_input(
+                "Diagnostic demand source",
+                placeholder="Enter guideline, study, or reference",
+            )
+
+        submitted = st.form_submit_button(
+            "Generate Resource Allocation",
             type="primary",
             width="stretch",
-            disabled=True,
         )
+
+    if submitted:
+        if saline_per_case <= 0 or diagnostic_per_case <= 0:
+            st.error(
+                "Both per-case demand assumptions must be greater than zero."
+            )
+
+        elif not saline_source.strip() or not diagnostic_source.strip():
+            st.error(
+                "Please provide a source for both demand assumptions."
+            )
+
+        else:
+            try:
+                with st.spinner(
+                    "Generating forecasts and allocating resources..."
+                ):
+                    forecasts = load_all_ward_forecasts(
+                        clean_data,
+                        as_of_date,
+                    )
+
+                    ward_information = (
+                        clean_data[
+                            [
+                                WARD_COL,
+                                CITY_COL,
+                                "population_density_sqkm",
+                            ]
+                        ]
+                        .drop_duplicates(subset=[WARD_COL])
+                        .rename(columns={
+                            WARD_COL: "ward_id",
+                            CITY_COL: "city",
+                        })
+                    )
+
+                    regional_inventory = pd.DataFrame(inventory_records)
+
+                    demand_parameters = {
+                        "saline_bags": {
+                            "per_case": saline_per_case,
+                            "source": saline_source.strip(),
+                            "status": "user_supplied",
+                        },
+                        "diagnostic_kits": {
+                            "per_case": diagnostic_per_case,
+                            "source": diagnostic_source.strip(),
+                            "status": "user_supplied",
+                        },
+                    }
+
+                    result = allocate_resources(
+                        forecasts=forecasts,
+                        ward_information=ward_information,
+                        regional_inventory=regional_inventory,
+                        stock_percentage=stock_percentage,
+                        demand_parameters=demand_parameters,
+                        horizon_weeks=selected_horizon,
+                    )
+
+                    st.session_state["resource_allocation_result"] = result
+                    st.session_state["resource_allocation_as_of_date"] = as_of_date
+
+                    st.success(
+                        "Resource allocation generated successfully."
+                    )
+
+            except Exception as exc:
+                st.error(f"Resource allocation failed: {exc}")
+
+    result = st.session_state.get("resource_allocation_result")
+    result_date = st.session_state.get("resource_allocation_as_of_date")
+
+    if result is not None and result_date == as_of_date:
+        st.divider()
+        st.markdown("#### Nationwide allocation summary")
+
+        st.caption(
+            f"Forecast date: {as_of_date} | "
+            f"Horizon: {result['horizon_weeks']} weeks | "
+            f"Stock availability: {result['stock_percentage']}%"
+        )
+
+        resource_summary = result["resource_summary"]
+        metric_cols = st.columns(4)
+
+        for index, resource in enumerate(
+            ["saline_bags", "diagnostic_kits"]
+        ):
+            resource_row = resource_summary[
+                resource_summary["resource"] == resource
+            ]
+
+            if resource_row.empty:
+                continue
+
+            row = resource_row.iloc[0]
+
+            if index == 0:
+                columns = metric_cols[:2]
+                label = "Saline bags"
+            else:
+                columns = metric_cols[2:]
+                label = "Diagnostic kits"
+
+            with columns[0]:
+                st.metric(
+                    f"{label} allocated",
+                    f"{int(row['total_allocated']):,}",
+                )
+
+            with columns[1]:
+                st.metric(
+                    f"{label} unmet",
+                    f"{int(row['total_unmet']):,}",
+                )
+
+        st.markdown("#### Nationwide resource summary")
+
+        st.dataframe(
+            resource_summary,
+            width="stretch",
+            hide_index=True,
+        )
+
+        st.markdown("#### City-level allocation")
+
+        st.dataframe(
+            result["regional_summary"],
+            width="stretch",
+            hide_index=True,
+        )
+
+        st.markdown("#### Ward-level allocation")
+
+        ward_results = result["ward_allocations"].copy()
+
+        selected_risk = st.multiselect(
+            "Filter by risk category",
+            ["Critical", "High", "Medium", "Low"],
+            default=["Critical", "High", "Medium", "Low"],
+            key="allocation_risk_filter",
+        )
+
+        ward_results = ward_results[
+            ward_results["risk_category"].isin(selected_risk)
+        ]
+
+        st.dataframe(
+            ward_results,
+            width="stretch",
+            hide_index=True,
+        )
+
+        st.download_button(
+            "Download ward allocation CSV",
+            data=ward_results.to_csv(index=False).encode("utf-8"),
+            file_name="dengueguard_ward_allocation.csv",
+            mime="text/csv",
+        )
+
+    elif result is not None:
+        st.info(
+            "The forecast date has changed. Submit the allocation "
+            "form again to generate results for the new date."
+        )
+elif page == "hospital_surge":
+    st.markdown(f"### {t['hospital_surge']}")
+    st.caption(t["hospital_desc"])
+
+    st.info(
+        "Hospital capacity must represent actual available beds. "
+        "Historical hospital_beds_required values are not capacity data."
+    )
+
+    forecast_horizon = st.selectbox(
+        "Forecast horizon",
+        [2, 3, 4],
+        format_func=lambda value: f"{value} weeks ahead",
+        key="hospital_surge_horizon",
+    )
+
+    beds_per_case = st.number_input(
+        "Estimated beds required per predicted dengue case",
+        min_value=0.001,
+        max_value=2.0,
+        value=float(DEFAULT_BEDS_PER_CASE),
+        step=0.001,
+        format="%.3f",
+        help="Scenario assumption. The default is not a clinically validated ratio.",
+    )
+
+    near_capacity_threshold = st.slider(
+        "Near-capacity warning threshold",
+        min_value=50,
+        max_value=100,
+        value=80,
+        step=5,
+    ) / 100
+
+    try:
+        all_forecasts = load_all_ward_forecasts(
+            clean_data,
+            as_of_date,
+        )
+
+        forecast_data = all_forecasts[
+            all_forecasts["horizon_weeks"] == forecast_horizon
+        ].copy()
+
+        forecast_data = forecast_data.rename(
+            columns={
+                WARD_COL: "ward_id",
+                CITY_COL: "city",
+            }
+        )
+
+        forecast_data["ward_id"] = (
+            forecast_data["ward_id"].astype(str)
+        )
+
+        forecast_data["city"] = (
+            forecast_data["city"].astype(str)
+        )
+
+        forecast_data = forecast_data[
+            [
+                "ward_id",
+                "city",
+                "horizon_weeks",
+                "predicted_cases",
+            ]
+        ]
+
+        if forecast_data.empty:
+            st.warning("No forecasts are available for this horizon.")
+            st.stop()
+
+    except Exception as error:
+        st.error(f"Could not load forecasts: {error}")
+        st.stop()
+
+    st.markdown("#### Hospital Capacity Configuration")
+
+    st.caption(
+        "Provide the actual available bed capacity for every forecast ward."
+    )
+
+    template = forecast_data[
+        ["ward_id", "city"]
+    ].drop_duplicates().copy()
+
+    template["capacity_beds"] = ""
+
+    st.download_button(
+        "Download hospital capacity CSV template",
+        data=template.to_csv(index=False).encode("utf-8"),
+        file_name="hospital_capacity_template.csv",
+        mime="text/csv",
+    )
+
+    input_method = st.radio(
+        "Capacity input method",
+        ["Manual entry", "Upload CSV"],
+        horizontal=True,
+        key="hospital_capacity_input_method",
+    )
+
+    capacity_data = None
+
+    if input_method == "Manual entry":
+        manual_capacity = template.copy()
+        manual_capacity["capacity_beds"] = pd.Series(
+            [pd.NA] * len(manual_capacity),
+            dtype="Int64",
+        )
+
+        capacity_data = st.data_editor(
+            manual_capacity,
+            hide_index=True,
+            width="stretch",
+            num_rows="fixed",
+            column_config={
+                "ward_id": st.column_config.TextColumn(
+                    "Ward ID",
+                    disabled=True,
+                ),
+                "city": st.column_config.TextColumn(
+                    "City",
+                    disabled=True,
+                ),
+                "capacity_beds": st.column_config.NumberColumn(
+                    "Available beds",
+                    min_value=0,
+                    step=1,
+                    format="%d",
+                ),
+            },
+            key="hospital_capacity_editor",
+        )
+
+    else:
+        uploaded_capacity = st.file_uploader(
+            "Upload hospital capacity CSV",
+            type=["csv"],
+            key="hospital_capacity_upload",
+        )
+
+        if uploaded_capacity is not None:
+            try:
+                capacity_data = pd.read_csv(uploaded_capacity)
+            except Exception as error:
+                st.error(f"Could not read CSV: {error}")
+
+    if capacity_data is not None:
+
+        required_columns = {
+            "ward_id",
+            "city",
+            "capacity_beds",
+        }
+
+        missing_columns = (
+            required_columns - set(capacity_data.columns)
+        )
+
+        if missing_columns:
+            st.error(
+                f"Missing CSV columns: {sorted(missing_columns)}"
+            )
+
+        else:
+            capacity_data = capacity_data[
+                ["ward_id", "city", "capacity_beds"]
+            ].copy()
+
+            capacity_data["ward_id"] = (
+                capacity_data["ward_id"].astype(str)
+            )
+
+            capacity_data["city"] = (
+                capacity_data["city"].astype(str)
+            )
+
+            numeric_capacity = pd.to_numeric(
+                capacity_data["capacity_beds"],
+                errors="coerce",
+            )
+
+            forecast_wards = set(forecast_data["ward_id"])
+            capacity_wards = set(capacity_data["ward_id"])
+
+            missing_wards = forecast_wards - capacity_wards
+
+            valid_capacity = (
+                numeric_capacity.notna().all()
+                and numeric_capacity.ge(0).all()
+                and numeric_capacity.mod(1).eq(0).all()
+            )
+
+            valid_wards = (
+                not capacity_data["ward_id"].duplicated().any()
+                and not missing_wards
+                and capacity_data["ward_id"].notna().all()
+                and capacity_data["city"].notna().all()
+            )
+
+            if not valid_wards:
+                st.error(
+                    "Capacity data contains duplicate wards, "
+                    "missing wards, or invalid ward information."
+                )
+
+            elif not valid_capacity:
+                st.error(
+                    "Available bed capacity must contain "
+                    "nonnegative whole numbers for every ward."
+                )
+
+            else:
+                capacity_data["capacity_beds"] = (
+                    numeric_capacity.astype(int)
+                )
+
+                try:
+                    assessment = assess_hospital_surge(
+                        forecast_data,
+                        capacity_data,
+                        beds_per_case=beds_per_case,
+                        near_capacity_threshold=near_capacity_threshold,
+                    )
+
+                    overflow_plan = generate_overflow_plan(
+                        assessment
+                    )
+
+                    st.success(
+                        "Hospital surge assessment generated successfully."
+                    )
+
+                    total_demand = int(
+                        assessment["estimated_bed_demand"].sum()
+                    )
+
+                    total_capacity = int(
+                        assessment["capacity_beds"].sum()
+                    )
+
+                    total_deficit = int(
+                        assessment["excess_beds"].sum()
+                    )
+
+                    total_headroom = int(
+                        assessment["spare_beds"].sum()
+                    )
+
+                    overall_utilization = (
+                        f"{total_demand / total_capacity:.1%}"
+                        if total_capacity > 0
+                        else (
+                            "No capacity"
+                            if total_demand > 0
+                            else "0%"
+                        )
+                    )
+
+                    st.markdown("#### Overall Hospital Situation")
+
+                    metric_cols = st.columns(4)
+
+                    metric_cols[0].metric(
+                        "Estimated bed demand",
+                        f"{total_demand:,}",
+                    )
+
+                    metric_cols[1].metric(
+                        "Available beds",
+                        f"{total_capacity:,}",
+                    )
+
+                    metric_cols[2].metric(
+                        "Bed deficit",
+                        f"{total_deficit:,}",
+                    )
+
+                    metric_cols[3].metric(
+                        "Overall utilization",
+                        overall_utilization,
+                    )
+
+                    city_summary = (
+                        assessment.groupby("city")
+                        .agg(
+                            estimated_demand=(
+                                "estimated_bed_demand",
+                                "sum",
+                            ),
+                            available_beds=(
+                                "capacity_beds",
+                                "sum",
+                            ),
+                            headroom=(
+                                "spare_beds",
+                                "sum",
+                            ),
+                            bed_deficit=(
+                                "excess_beds",
+                                "sum",
+                            ),
+                        )
+                        .reset_index()
+                    )
+
+                    city_summary["utilization"] = (
+                        city_summary.apply(
+                            lambda row: (
+                                f"{row['estimated_demand'] / row['available_beds']:.1%}"
+                                if row["available_beds"] > 0
+                                else (
+                                    "No capacity"
+                                    if row["estimated_demand"] > 0
+                                    else "0%"
+                                )
+                            ),
+                            axis=1,
+                        )
+                    )
+
+                    st.markdown("#### City-Wide Bed Utilization")
+
+                    st.dataframe(
+                        city_summary,
+                        width="stretch",
+                        hide_index=True,
+                    )
+
+                    ward_results = assessment.copy()
+
+                    ward_results["utilization"] = (
+                        ward_results["capacity_utilization"].apply(
+                            lambda value: (
+                                "No capacity"
+                                if value == float("inf")
+                                else f"{value:.1%}"
+                            )
+                        )
+                    )
+
+                    ward_results = ward_results.drop(
+                        columns=["capacity_utilization"]
+                    )
+
+                    st.markdown("#### Ward-Level Hospital Assessment")
+
+                    st.dataframe(
+                        ward_results,
+                        width="stretch",
+                        hide_index=True,
+                    )
+
+                    deficits = assessment[
+                        assessment["excess_beds"] > 0
+                    ].copy()
+
+                    st.markdown("#### Overloaded Wards")
+
+                    if deficits.empty:
+                        st.success(
+                            "No wards currently exceed their available bed capacity."
+                        )
+                    else:
+                        st.dataframe(
+                            deficits[
+                                [
+                                    "ward_id",
+                                    "city",
+                                    "estimated_bed_demand",
+                                    "capacity_beds",
+                                    "excess_beds",
+                                    "surge_status",
+                                ]
+                            ],
+                            width="stretch",
+                            hide_index=True,
+                        )
+
+                    st.markdown("#### Cross-Ward Overflow Routing")
+
+                    if overflow_plan.empty:
+                        st.info(
+                            "No overflow transfers are currently required."
+                        )
+                    else:
+                        display_plan = overflow_plan.rename(
+                            columns={
+                                "from_ward": "Ward needing beds",
+                                "to_ward": "Donor ward",
+                                "beds_to_transfer": "Beds recommended",
+                                "unmet_beds": "Unmet beds",
+                            }
+                        )
+
+                        st.dataframe(
+                            display_plan,
+                            width="stretch",
+                            hide_index=True,
+                        )
+
+                        unmet_total = int(
+                            overflow_plan["unmet_beds"].sum()
+                        )
+
+                        if unmet_total > 0:
+                            st.error(
+                                f"{unmet_total} beds remain unmet "
+                                "after possible same-city routing."
+                            )
+
+                    st.download_button(
+                        "Download hospital surge assessment",
+                        data=ward_results.to_csv(
+                            index=False
+                        ).encode("utf-8"),
+                        file_name="hospital_surge_assessment.csv",
+                        mime="text/csv",
+                    )
+
+                    st.download_button(
+                        "Download overflow routing plan",
+                        data=overflow_plan.to_csv(
+                            index=False
+                        ).encode("utf-8"),
+                        file_name="hospital_overflow_plan.csv",
+                        mime="text/csv",
+                    )
+
+                    st.caption(
+                        "Overflow routes are planning recommendations, "
+                        "not confirmed patient transfers. Bed demand is "
+                        "a scenario estimate."
+                    )
+
+                except (ValueError, TypeError) as error:
+                    st.error(f"Hospital assessment error: {error}")
+
+elif page == "vector_simulator":
+    st.markdown(f"### {t['vector_simulator']}")
+    st.caption(t["vector_desc"])
+
+    available_wards = sorted(
+        clean_data[WARD_COL].dropna().unique().tolist()
+    )
+
+    selected_wards = st.multiselect(
+        t["select_wards"],
+        available_wards,
+        key="vector_ward_preview",
+    )
+
+    control_col, horizon_col = st.columns(2)
+
+    with control_col:
+        intervention_teams = st.number_input(
+            t["intervention_teams"],
+            min_value=0,
+            max_value=1000,
+            value=0,
+            step=1,
+            key="vector_team_preview",
+        )
+
+    with horizon_col:
+        simulation_horizon = st.selectbox(
+            t["simulation_horizon"],
+            [2, 3, 4],
+            format_func=lambda weeks: f"{weeks} weeks",
+            key="vector_horizon_preview",
+        )
+
+    st.caption(t["ui_control_note"])
+
+    metric_cols = st.columns(3)
+
+    for col, label in zip(
+        metric_cols,
+        [
+            t["baseline_cases"],
+            t["simulated_cases"],
+            t["cases_prevented"],
+        ],
+    ):
+        with col:
+            st.metric(label, "—", help=t["awaiting_backend"])
+
+    st.caption(
+        f"{len(selected_wards)} {t['wards']} · "
+        f"{intervention_teams} · {simulation_horizon} weeks"
+    )
+
+    st.warning(t["no_backend_results"])
+
+elif page == "dispatch_center":
+    st.markdown(f"### {t['dispatch_center']}")
+    st.caption(t["dispatch_desc"])
+
+    available_wards = sorted(
+        clean_data[WARD_COL].dropna().unique().tolist()
+    )
+
+    selected_dispatch_ward = st.selectbox(
+        t["dispatch_ward"],
+        available_wards,
+        key="dispatch_ward_preview",
+    )
+
+    dispatch_format = st.radio(
+        t["dispatch_format"],
+        ["SMS", "WhatsApp", "PDF", "HTML"],
+        horizontal=True,
+        key="dispatch_format_preview",
+    )
+
+    st.markdown(f"#### {t['dispatch_preview']}")
+
+    st.caption(
+        f"{t['ward']}: {selected_dispatch_ward} · "
+        f"{t['dispatch_format']}: {dispatch_format}"
+    )
+
+    st.info(t["dispatch_unavailable"])
+
+    st.button(
+        t["generate_dispatch"],
+        type="primary",
+        width="stretch",
+        disabled=True,
+    )
 
 
 st.divider()
+
 if page in ("dashboard", "ward_forecast"):
     render_risk_guide()
+
 st.divider()
 
 st.caption("DengueGuard AI")

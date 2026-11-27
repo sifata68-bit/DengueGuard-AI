@@ -1,8 +1,9 @@
-
 import math
 
 import numpy as np
 import pandas as pd
+
+from src.hospital_surge import DEFAULT_BEDS_PER_CASE
 
 
 RISK_PRIORITY = {
@@ -31,9 +32,7 @@ def _require_columns(dataframe, required, name):
     missing = sorted(set(required) - set(dataframe.columns))
 
     if missing:
-        raise ValueError(
-            f"{name} is missing required columns: {missing}"
-        )
+        raise ValueError(f"{name} is missing required columns: {missing}")
 
 
 def _validate_nonnegative_numeric(series, name):
@@ -97,7 +96,6 @@ def _validate_demand_parameters(demand_parameters):
             )
 
         required = {"per_case", "source", "status"}
-
         missing = required - set(parameters)
 
         if missing:
@@ -139,13 +137,55 @@ def _validate_demand_parameters(demand_parameters):
     }
 
 
+def _validate_crew_limits(spraying_crews_by_city, cities):
+    if spraying_crews_by_city is None:
+        spraying_crews_by_city = {city: 0 for city in cities}
+
+    if not isinstance(spraying_crews_by_city, dict):
+        raise TypeError("spraying_crews_by_city must be a dictionary.")
+
+    if set(spraying_crews_by_city) != set(cities):
+        raise ValueError(
+            "Crew limits must be supplied for exactly the forecast cities."
+        )
+
+    limits = {}
+
+    for city, crews in spraying_crews_by_city.items():
+        if isinstance(crews, (bool, np.bool_)):
+            raise ValueError("Crew limits must be nonnegative whole numbers.")
+
+        try:
+            numeric_crews = float(crews)
+        except (TypeError, ValueError):
+            raise ValueError(
+                "Crew limits must be nonnegative whole numbers."
+            ) from None
+
+        if (
+            not math.isfinite(numeric_crews)
+            or numeric_crews < 0
+            or numeric_crews % 1 != 0
+        ):
+            raise ValueError(
+                "Crew limits must be nonnegative whole numbers."
+            )
+
+        limits[city] = int(numeric_crews)
+
+    return limits
+
+
 def _prepare_inputs(
     forecasts,
     ward_information,
     regional_inventory,
     horizon_weeks,
 ):
-    if isinstance(horizon_weeks, bool) or horizon_weeks not in (2, 3, 4):
+    if (
+        isinstance(horizon_weeks, (bool, np.bool_))
+        or horizon_weeks not in (2, 3, 4)
+    ):
         raise ValueError("horizon_weeks must be 2, 3, or 4.")
 
     _require_columns(
@@ -162,11 +202,7 @@ def _prepare_inputs(
 
     _require_columns(
         ward_information,
-        [
-            "ward_id",
-            "city",
-            "population_density_sqkm",
-        ],
+        ["ward_id", "city", "population_density_sqkm"],
         "ward_information",
     )
 
@@ -272,9 +308,7 @@ def _prepare_inputs(
 
     inventory = _validate_inventory(regional_inventory)
 
-    missing_cities = (
-        set(prepared["city"]) - set(inventory["city"])
-    )
+    missing_cities = set(prepared["city"]) - set(inventory["city"])
 
     if missing_cities:
         raise ValueError(
@@ -291,8 +325,9 @@ def allocate_resources(
     stock_percentage,
     demand_parameters,
     horizon_weeks,
+    spraying_crews_by_city=None,
 ):
-    if isinstance(stock_percentage, bool):
+    if isinstance(stock_percentage, (bool, np.bool_)):
         raise ValueError("stock_percentage must be between 30 and 100.")
 
     try:
@@ -319,28 +354,28 @@ def allocate_resources(
         horizon_weeks,
     )
 
+    crew_limits = _validate_crew_limits(
+        spraying_crews_by_city,
+        prepared["city"].unique().tolist(),
+    )
+
     allocation_records = []
     regional_records = []
+    crew_records = []
 
-    for city, city_wards in prepared.groupby(
-        "city",
-        sort=True,
-    ):
+    for city, city_wards in prepared.groupby("city", sort=True):
         city_stock = inventory.loc[
             inventory["city"] == city
         ].iloc[0]
 
         available = {
             resource: math.floor(
-                city_stock[resource]
-                * stock_percentage
-                / 100
+                city_stock[resource] * stock_percentage / 100
             )
             for resource in RESOURCE_COLUMNS
         }
 
         remaining = available.copy()
-
         city_wards = city_wards.copy()
 
         city_wards["risk_priority"] = (
@@ -358,45 +393,53 @@ def allocate_resources(
         )
 
         city_demand = {
-            resource: 0
-            for resource in RESOURCE_COLUMNS
+            resource: 0 for resource in RESOURCE_COLUMNS
+        }
+        city_allocated = {
+            resource: 0 for resource in RESOURCE_COLUMNS
         }
 
-        city_allocated = {
-            resource: 0
-            for resource in RESOURCE_COLUMNS
-        }
+        crew_limit = crew_limits[city]
+        assigned_crews = 0
 
         for city_rank, (_, ward) in enumerate(
             city_wards.iterrows(),
             start=1,
         ):
+            crew_assigned = assigned_crews < crew_limit
+
+            if crew_assigned:
+                assigned_crews += 1
+
+            predicted_cases = float(ward["predicted_cases"])
+            beds_required = math.ceil(
+                predicted_cases * DEFAULT_BEDS_PER_CASE
+            )
+
             record = {
                 "city": city,
                 "ward_id": ward["ward_id"],
                 "date": ward["date"],
                 "horizon_weeks": horizon_weeks,
-                "predicted_cases": float(
-                    ward["predicted_cases"]
-                ),
+                "predicted_cases": predicted_cases,
                 "risk_category": ward["risk_category"],
                 "population_density_sqkm": float(
                     ward["population_density_sqkm"]
                 ),
                 "priority_rank": city_rank,
+                "hospital_beds_required": beds_required,
+                "vector_control_crews_assigned": int(crew_assigned),
+                "crew_assignment_status": (
+                    "Assigned" if crew_assigned else "Unassigned"
+                ),
             }
 
             for resource in RESOURCE_COLUMNS:
                 demand = math.ceil(
-                    ward["predicted_cases"]
-                    * parameters[resource]["per_case"]
+                    predicted_cases * parameters[resource]["per_case"]
                 )
 
-                allocated = min(
-                    demand,
-                    remaining[resource],
-                )
-
+                allocated = min(demand, remaining[resource])
                 unmet = demand - allocated
 
                 remaining[resource] -= allocated
@@ -404,42 +447,66 @@ def allocate_resources(
                 city_allocated[resource] += allocated
 
                 record[f"{resource}_demand"] = demand
+                record[f"{resource}_needed"] = demand
                 record[f"{resource}_allocated"] = allocated
                 record[f"{resource}_unmet"] = unmet
 
             allocation_records.append(record)
 
+            crew_records.append(
+                {
+                    "city": city,
+                    "ward_id": ward["ward_id"],
+                    "risk_category": ward["risk_category"],
+                    "population_density_sqkm": float(
+                        ward["population_density_sqkm"]
+                    ),
+                    "priority_rank": city_rank,
+                    "crew_assigned": int(crew_assigned),
+                    "assignment_status": (
+                        "Assigned" if crew_assigned else "Unassigned"
+                    ),
+                }
+            )
+
         regional_record = {
             "city": city,
             "horizon_weeks": horizon_weeks,
             "stock_percentage": stock_percentage,
+            "spraying_crews_available": crew_limit,
+            "spraying_crews_assigned": assigned_crews,
+            "spraying_crews_unassigned": (
+                crew_limit - assigned_crews
+            ),
+            "spraying_crews_unused": crew_limit - assigned_crews,
+            "wards_without_crews": len(city_wards) - assigned_crews,
+            "hospital_beds_required": sum(
+                math.ceil(
+                    float(cases) * DEFAULT_BEDS_PER_CASE
+                )
+                for cases in city_wards["predicted_cases"]
+            ),
         }
 
         for resource in RESOURCE_COLUMNS:
             regional_record[f"{resource}_inventory"] = int(
                 city_stock[resource]
             )
-            regional_record[f"{resource}_available"] = (
-                available[resource]
-            )
-            regional_record[f"{resource}_demand"] = (
-                city_demand[resource]
-            )
+            regional_record[f"{resource}_available"] = available[resource]
+            regional_record[f"{resource}_demand"] = city_demand[resource]
             regional_record[f"{resource}_allocated"] = (
                 city_allocated[resource]
             )
             regional_record[f"{resource}_unmet"] = (
-                city_demand[resource]
-                - city_allocated[resource]
+                city_demand[resource] - city_allocated[resource]
             )
-            regional_record[f"{resource}_remaining"] = (
-                remaining[resource]
-            )
+            regional_record[f"{resource}_remaining"] = remaining[resource]
 
         regional_records.append(regional_record)
 
     ward_allocations = pd.DataFrame(allocation_records)
     regional_summary = pd.DataFrame(regional_records)
+    crew_assignments = pd.DataFrame(crew_records)
 
     resource_records = []
 
@@ -448,34 +515,22 @@ def allocate_resources(
             {
                 "resource": resource,
                 "total_inventory": int(
-                    regional_summary[
-                        f"{resource}_inventory"
-                    ].sum()
+                    regional_summary[f"{resource}_inventory"].sum()
                 ),
                 "total_available": int(
-                    regional_summary[
-                        f"{resource}_available"
-                    ].sum()
+                    regional_summary[f"{resource}_available"].sum()
                 ),
                 "total_demand": int(
-                    regional_summary[
-                        f"{resource}_demand"
-                    ].sum()
+                    regional_summary[f"{resource}_demand"].sum()
                 ),
                 "total_allocated": int(
-                    regional_summary[
-                        f"{resource}_allocated"
-                    ].sum()
+                    regional_summary[f"{resource}_allocated"].sum()
                 ),
                 "total_unmet": int(
-                    regional_summary[
-                        f"{resource}_unmet"
-                    ].sum()
+                    regional_summary[f"{resource}_unmet"].sum()
                 ),
                 "total_remaining": int(
-                    regional_summary[
-                        f"{resource}_remaining"
-                    ].sum()
+                    regional_summary[f"{resource}_remaining"].sum()
                 ),
             }
         )
@@ -486,7 +541,27 @@ def allocate_resources(
         "ward_allocations": ward_allocations,
         "regional_summary": regional_summary,
         "resource_summary": resource_summary,
+        "crew_assignments": crew_assignments,
+        "crew_summary": regional_summary[
+            [
+                "city",
+                "spraying_crews_available",
+                "spraying_crews_assigned",
+                "spraying_crews_unassigned",
+                "spraying_crews_unused",
+                "wards_without_crews",
+            ]
+        ].copy(),
         "horizon_weeks": horizon_weeks,
         "stock_percentage": stock_percentage,
         "demand_parameters": parameters,
+        "assumptions": {
+            "beds_per_case": DEFAULT_BEDS_PER_CASE,
+            "bed_demand_source": (
+                "Historical operational assumption used by Hospital Surge"
+            ),
+            "bed_capacity_note": (
+                "Estimated demand only; this is not actual hospital capacity."
+            ),
+        },
     }
