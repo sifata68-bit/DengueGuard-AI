@@ -293,3 +293,90 @@ def test_inventory_is_allocated_separately_by_city():
     assert summary.loc["Chattogram", "saline_bags_allocated"] <= 10
 
     assert summary.loc["Chattogram", "saline_bags_allocated"] == 10
+
+def test_crew_assignments_respect_city_limits():
+    result = run_allocation(spraying_crews_by_city={"Dhaka": 1})
+    crews = result["crew_assignments"]
+    assert crews["crew_assigned"].sum() == 1
+    assert crews.loc[crews["crew_assigned"] == 1, "ward_id"].tolist() == ["W1"]
+
+
+def test_critical_ward_gets_crew_before_lower_risk_wards():
+    result = run_allocation(spraying_crews_by_city={"Dhaka": 1})
+    crews = result["crew_assignments"]
+    assert crews.iloc[0]["risk_category"] == "Critical"
+    assert crews.iloc[0]["assignment_status"] == "Assigned"
+    assert crews.iloc[1]["assignment_status"] == "Unassigned"
+
+
+def test_population_density_breaks_crew_priority_ties():
+    inputs = list(make_inputs())
+    inputs[0]["risk_category"] = "Critical"
+    result = run_allocation(tuple(inputs), spraying_crews_by_city={"Dhaka": 1})
+    crews = result["crew_assignments"]
+    assert crews.iloc[0]["ward_id"] == "W2"
+    assert crews.iloc[0]["crew_assigned"] == 1
+
+
+def test_hospital_bed_demand_uses_shared_ratio():
+    result = run_allocation()
+    allocations = result["ward_allocations"]
+    assert allocations["hospital_beds_required"].tolist() == [3, 3, 2]
+    assert result["assumptions"]["beds_per_case"] == 0.253
+
+
+def test_crew_limits_are_independent_by_city():
+    inputs = list(make_inputs())
+    inputs[0].loc[2, "city"] = "Chattogram"
+    inputs[1].loc[2, "city"] = "Chattogram"
+    inputs[2] = pd.DataFrame({
+        "city": ["Dhaka", "Chattogram"],
+        "saline_bags": [30, 10],
+        "diagnostic_kits": [20, 5],
+    })
+    result = run_allocation(
+        tuple(inputs),
+        spraying_crews_by_city={"Dhaka": 1, "Chattogram": 1},
+    )
+    summary = result["crew_summary"].set_index("city")
+    assert summary.loc["Dhaka", "spraying_crews_assigned"] == 1
+    assert summary.loc["Chattogram", "spraying_crews_assigned"] == 1
+
+
+@pytest.mark.parametrize(
+    "crew_limits",
+    [
+        {"Dhaka": -1},
+        {"Dhaka": 1.5},
+        {"Dhaka": float("inf")},
+        {"Dhaka": float("nan")},
+        {"Dhaka": True},
+        {},
+        {"Dhaka": 1, "Chattogram": 2},
+    ],
+)
+def test_invalid_crew_limits_are_rejected(crew_limits):
+    with pytest.raises((ValueError, TypeError)):
+        run_allocation(spraying_crews_by_city=crew_limits)
+
+
+def test_crew_assignments_report_unassigned_wards():
+    result = run_allocation(spraying_crews_by_city={"Dhaka": 1})
+    crews = result["crew_assignments"]
+    assert (crews["assignment_status"] == "Unassigned").sum() == 2
+    assert result["crew_summary"].iloc[0]["wards_without_crews"] == 2
+
+def test_exact_challenge_demand_fields_match_calculated_demand():
+    result = run_allocation()
+    allocations = result["ward_allocations"]
+
+    assert allocations["saline_bags_needed"].tolist() == [20, 16, 10]
+    assert allocations["diagnostic_kits_needed"].tolist() == [10, 8, 5]
+
+
+def test_unused_crew_summary_is_reported():
+    result = run_allocation(spraying_crews_by_city={"Dhaka": 5})
+    summary = result["crew_summary"].iloc[0]
+
+    assert summary["spraying_crews_unused"] == 2
+    assert summary["spraying_crews_unassigned"] == 2
