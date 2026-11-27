@@ -7,6 +7,7 @@ import pytest
 from src.config import (
     CITY_COL,
     DATE_COL,
+    OPERATIONAL_COLS,
     REQUIRED_COLS,
     SHEET_NAME,
     TARGET_COL,
@@ -133,4 +134,67 @@ def test_cache_is_reused_and_rebuilt_only_when_the_source_changes(tmp_path):
     third = get_clean_data(raw_path=raw, clean_path=csv, meta_path=meta, report_path=rep)
     assert third.sort_values([WARD_COL, DATE_COL]).iloc[0][TARGET_COL] == 999  # source edit -> rebuild
     assert json.loads(meta.read_text())["source_sha256"]
-    
+
+
+
+def make_valid_operational() -> pd.DataFrame:
+    df = make_valid()
+    df[OPERATIONAL_COLS[0]] = 10
+    df[OPERATIONAL_COLS[1]] = 20
+    df[OPERATIONAL_COLS[2]] = 5
+    return df
+
+
+def test_valid_operational_columns_are_preserved_as_integers():
+    df = make_valid_operational()
+    out = clean(df)
+
+    for col in OPERATIONAL_COLS:
+        assert col in out.columns
+        assert out[col].eq(df[col]).all()
+        assert out[col].dtype == "int64"
+
+
+@pytest.mark.parametrize("invalid_value", [np.nan, "invalid"])
+def test_missing_or_invalid_operational_values_raise(invalid_value):
+    df = make_valid_operational()
+    df[OPERATIONAL_COLS[0]] = df[OPERATIONAL_COLS[0]].astype(object)
+    df.loc[0, OPERATIONAL_COLS[0]] = invalid_value
+
+    with pytest.raises(DataQualityError):
+        clean(df)
+
+
+@pytest.mark.parametrize("invalid_value", [-1, -10])
+def test_negative_operational_values_raise(invalid_value):
+    df = make_valid_operational()
+    df.loc[0, OPERATIONAL_COLS[0]] = invalid_value
+
+    with pytest.raises(DataQualityError):
+        clean(df)
+
+
+@pytest.mark.parametrize("invalid_value", [1.5, 2.25])
+def test_non_integer_operational_values_raise(invalid_value):
+    df = make_valid_operational()
+    df[OPERATIONAL_COLS[0]] = df[OPERATIONAL_COLS[0]].astype(object)
+    df.loc[0, OPERATIONAL_COLS[0]] = invalid_value
+
+    with pytest.raises(DataQualityError):
+        clean(df)
+
+
+@pytest.mark.parametrize("missing_col", OPERATIONAL_COLS)
+def test_partial_operational_columns_raise(missing_col):
+    df = make_valid_operational().drop(columns=[missing_col])
+
+    with pytest.raises(DataQualityError, match="Incomplete operational columns"):
+        clean(df)
+
+
+def test_phase1_dataset_without_operational_columns_remains_compatible():
+    df = make_valid()
+    out = clean(df)
+
+    assert len(out) == len(df)
+    assert not any(col in out.columns for col in OPERATIONAL_COLS)
